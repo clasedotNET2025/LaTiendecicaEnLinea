@@ -1,0 +1,6 @@
+@LaTiendecicaEnLinea.Api.Identity_HostAddress = http://localhost:5145
+
+GET {{LaTiendecicaEnLinea.Api.Identity_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -3,7 +3,54 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36623.8 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Elementos de la solución", "Elementos de la solución", "{D107F4C8-89CC-BEA8-D3D7-CA6B7733353D}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Packages.props = Directory.Packages.props
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Host", "LaTiendecicaEnLinea.Host\LaTiendecicaEnLinea.Host.csproj", "{86099D0F-DF3B-4535-8DBC-C544B2AA9143}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Api.Identity", "LaTiendecicaEnLinea.Api.Identity\LaTiendecicaEnLinea.Api.Identity.csproj", "{E3B697F4-0C09-748F-999C-7EAD71BE0D5B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.ApiGateway", "LaTiendecicaEnLinea.ApiGateway\LaTiendecicaEnLinea.ApiGateway.csproj", "{8B235B4B-47D7-0694-B88B-9EF22D13FE8F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Notifications", "LaTiendecicaEnLinea.Notifications\LaTiendecicaEnLinea.Notifications.csproj", "{DFBF4583-3FF3-0B3D-4EA7-4FBDB0CFEA13}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Shared", "LaTiendecicaEnLinea.Shared\LaTiendecicaEnLinea.Shared.csproj", "{F5252B45-C627-47D9-9886-356F8C7C4D66}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.ServiceDefaults", "LaTiendecicaEnLinea.ServiceDefaults\LaTiendecicaEnLinea.ServiceDefaults.csproj", "{B269AD62-6423-44CC-977F-40732E570C54}"
+EndProject
 Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{86099D0F-DF3B-4535-8DBC-C544B2AA9143}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{86099D0F-DF3B-4535-8DBC-C544B2AA9143}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{86099D0F-DF3B-4535-8DBC-C544B2AA9143}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{86099D0F-DF3B-4535-8DBC-C544B2AA9143}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E3B697F4-0C09-748F-999C-7EAD71BE0D5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E3B697F4-0C09-748F-999C-7EAD71BE0D5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E3B697F4-0C09-748F-999C-7EAD71BE0D5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E3B697F4-0C09-748F-999C-7EAD71BE0D5B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B235B4B-47D7-0694-B88B-9EF22D13FE8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B235B4B-47D7-0694-B88B-9EF22D13FE8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B235B4B-47D7-0694-B88B-9EF22D13FE8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B235B4B-47D7-0694-B88B-9EF22D13FE8F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DFBF4583-3FF3-0B3D-4EA7-4FBDB0CFEA13}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DFBF4583-3FF3-0B3D-4EA7-4FBDB0CFEA13}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DFBF4583-3FF3-0B3D-4EA7-4FBDB0CFEA13}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DFBF4583-3FF3-0B3D-4EA7-4FBDB0CFEA13}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5252B45-C627-47D9-9886-356F8C7C4D66}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5252B45-C627-47D9-9886-356F8C7C4D66}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5252B45-C627-47D9-9886-356F8C7C4D66}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5252B45-C627-47D9-9886-356F8C7C4D66}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B269AD62-6423-44CC-977F-40732E570C54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B269AD62-6423-44CC-977F-40732E570C54}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B269AD62-6423-44CC-977F-40732E570C54}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B269AD62-6423-44CC-977F-40732E570C54}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
