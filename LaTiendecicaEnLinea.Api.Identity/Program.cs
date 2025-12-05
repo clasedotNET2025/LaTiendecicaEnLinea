@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using FluentValidation;
 using LaTiendecicaEnLinea.Api.Identity.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,8 @@ builder.Services.AddApiVersioning(options =>
         options.GroupNameFormat = "'v'V";
         options.SubstituteApiVersionInUrl = true;
     });
+
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 builder.AddNpgsqlDbContext<MyAppContext>("identity-db");
 

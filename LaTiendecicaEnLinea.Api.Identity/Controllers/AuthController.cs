@@ -1,6 +1,13 @@
 ﻿using Asp.Versioning;
-using LaTiendecicaEnLinea.Api.Identity.Services;
+using FluentValidation;
+using LaTiendecicaEnLinea.Api.Identity.Dtos.Auth;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 {
@@ -9,44 +16,266 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
     [Route("/api/v{version:apiVersion}/[controller]")]
     public class AuthController : ControllerBase
     {
-        private IEnumerable<User> _users = new List<User>();
-        private IAuthService _authService;
+        private readonly UserManager<IdentityUser> _userManager;
+        private readonly SignInManager<IdentityUser> _signInManager;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IAuthService authService, ILogger<AuthController> logger)
+        public AuthController(
+            UserManager<IdentityUser> userManager,
+            SignInManager<IdentityUser> signInManager,
+            IConfiguration configuration,
+            ILogger<AuthController> logger)
         {
-            _authService = authService;
+            _userManager = userManager;
+            _signInManager = signInManager;
+            _configuration = configuration;
             _logger = logger;
-
         }
 
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] User user)
+        [AllowAnonymous]
+        [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<RegisterResponse>> Register(
+            [FromBody] RegisterRequest request,
+            [FromServices] IValidator<RegisterRequest> validator,
+            CancellationToken cancellationToken = default)
         {
-            var result = await _authService.Register(user.Email, user.Password);
+            var validationResult = await validator.ValidateAsync(request, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.ToDictionary();
+                _logger.LogWarning("Registration validation failed for email: {Email}", request.Email);
+                return ValidationProblem(new ValidationProblemDetails(errors)
+                {
+                    Title = "Validation failed"
+                });
+            }
 
-            return Ok("User registered successfully.");
+            // Check if user already exists
+            var existingUser = await _userManager.FindByEmailAsync(request.Email);
+            if (existingUser != null)
+            {
+                _logger.LogWarning("Registration attempt with existing email: {Email}", request.Email);
+                return Problem(
+                    title: "User already exists",
+                    detail: "User with this email already exists",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var user = new IdentityUser
+            {
+                UserName = request.Email,
+                Email = request.Email,
+                EmailConfirmed = true // Cambiar a false en producción con confirmación por email
+            };
+
+            var result = await _userManager.CreateAsync(user, request.Password);
+
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description);
+                _logger.LogWarning("User creation failed for email: {Email}. Errors: {@Errors}",
+                    request.Email, errors);
+                return Problem(
+                    title: "Failed to create user",
+                    detail: string.Join(", ", errors),
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            // Add default role
+            await _userManager.AddToRoleAsync(user, "Customer");
+
+            _logger.LogInformation("User successfully registered: {UserId} - {Email}", user.Id, user.Email);
+
+            var response = new RegisterResponse
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                Message = "User registered successfully"
+            };
+
+            return CreatedAtAction(nameof(Login), new { }, response);
         }
 
+        /// <summary>
+        /// Login user
+        /// </summary>
+        /// <param name="request">Login credentials</param>
+        /// <param name="validator">Request validator</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>JWT token and user information</returns>
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] User user)
+        [AllowAnonymous]
+        [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<LoginResponse>> Login(
+            [FromBody] LoginRequest request,
+            [FromServices] IValidator<LoginRequest> validator,
+            CancellationToken cancellationToken = default)
         {
-            var result = await _authService.Login(user.Email, user.Password);
+            var validationResult = await validator.ValidateAsync(request, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.ToDictionary();
+                _logger.LogWarning("Login validation failed for email: {Email}", request.Email);
+                return ValidationProblem(new ValidationProblemDetails(errors)
+                {
+                    Title = "Validation failed"
+                });
+            }
 
-            if (result == null)
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user is null)
+            {
+                _logger.LogWarning("Login attempt with non-existent email: {Email}", request.Email);
+                return Problem(
+                    title: "Invalid credentials",
+                    detail: "Invalid email or password",
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
+
+            if (result.IsLockedOut)
+            {
+                _logger.LogWarning("User account locked out: {Email}", request.Email);
+                return Problem(
+                    title: "Account locked",
+                    detail: "Account is locked due to multiple failed login attempts. Please try again later.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            if (!result.Succeeded)
+            {
+                _logger.LogWarning("Failed login attempt for email: {Email}", request.Email);
+                return Problem(
+                    title: "Invalid credentials",
+                    detail: "Invalid email or password",
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            // Get user roles
+            var roles = await _userManager.GetRolesAsync(user);
+
+            // Generate JWT token
+            var token = GenerateJwtToken(user, roles);
+            var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
+
+            _logger.LogInformation("User successfully logged in: {UserId} - {Email}", user.Id, user.Email);
+
+            var response = new LoginResponse
+            {
+                AccessToken = token,
+                TokenType = "Bearer",
+                ExpiresIn = expiryMinutes * 60, // Convert to seconds
+                UserId = user.Id,
+                Email = user.Email!,
+                Roles = roles
+            };
+
+            return Ok(response);
+        }
+
+        /// <summary>
+        /// Get current user information
+        /// </summary>
+        /// <returns>Current user information</returns>
+        [HttpGet("me")]
+        [Authorize]
+        [ProducesResponseType<CurrentUserResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<CurrentUserResponse>> GetCurrentUser()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized();
             }
 
-            return Ok(result);
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            var response = new CurrentUserResponse
+            {
+                UserId = user.Id,
+                Email = user.Email!,
+                Roles = roles,
+                UserName = user.UserName!,
+                EmailConfirmed = user.EmailConfirmed
+            };
+
+            _logger.LogInformation("User information retrieved: {UserId} - {Email}", userId, user.Email);
+
+            return Ok(response);
         }
 
-    }
+        /// <summary>
+        /// Admin only endpoint
+        /// </summary>
+        /// <returns>Admin confirmation message</returns>
+        [HttpGet("admin-only")]
+        [ProducesResponseType<AdminOnlyResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [Authorize(Roles = "Admin")]
+        public ActionResult<AdminOnlyResponse> AdminOnly()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
 
-    public class User
-    {
-        public required string Email { get; set; }
-        public required string Password { get; set; }
+            var response = new AdminOnlyResponse
+            {
+                Message = "You are an admin!",
+                UserId = userId ?? string.Empty,
+                UserEmail = userEmail ?? string.Empty,
+                Timestamp = DateTime.UtcNow,
+                IsAdmin = true
+            };
+
+            _logger.LogInformation("Admin endpoint accessed by user: {UserId} - {UserEmail}", userId, userEmail);
+
+            return Ok(response);
+        }
+
+        private string GenerateJwtToken(IdentityUser user, IList<string> roles)
+        {
+            var jwtSecret = _configuration["Jwt:Secret"]!;
+            var jwtIssuer = _configuration["Jwt:Issuer"]!;
+            var jwtAudience = _configuration["Jwt:Audience"]!;
+            var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new List<Claim>
+            {
+                new(JwtRegisteredClaimNames.Sub, user.Id),
+                new(JwtRegisteredClaimNames.Email, user.Email!),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new(ClaimTypes.NameIdentifier, user.Id)
+            };
+
+            // Add role claims
+            claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+            var token = new JwtSecurityToken(
+                issuer: jwtIssuer,
+                audience: jwtAudience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
     }
 }
