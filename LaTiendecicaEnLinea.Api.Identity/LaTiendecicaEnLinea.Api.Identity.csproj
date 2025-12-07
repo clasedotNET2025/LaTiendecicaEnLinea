@@ -6,14 +6,8 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UserSecretsId>78f6e44d-1a24-492a-957a-920d9c7f5436</UserSecretsId>
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+		<NoWarn>$(NoWarn);NU1608;NU1605</NoWarn>
 	</PropertyGroup>
-
-	<ItemGroup>
-	  <Compile Remove="Validations\Auth\**" />
-	  <Content Remove="Validations\Auth\**" />
-	  <EmbeddedResource Remove="Validations\Auth\**" />
-	  <None Remove="Validations\Auth\**" />
-	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Asp.Versioning.Http" />
@@ -29,6 +23,10 @@
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>

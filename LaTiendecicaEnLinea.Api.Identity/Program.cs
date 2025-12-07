@@ -1,20 +1,30 @@
 using Asp.Versioning;
 using FluentValidation;
 using LaTiendecicaEnLinea.Api.Identity.Data;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using OrderFlow.Identity.Extensions;
+using OrderFlow.Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Configuration.AddUserSecrets(typeof(Program).Assembly, true);
 
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
 
+// Configurar OpenAPI con seguridad JWT
+builder.Services.AddOpenApi("v1", options =>
+{
+    options.ConfigureDocumentInfo(
+        "La Tiendecica En Línea - Identity API V1",
+        "v1",
+        "Authentication API using Controllers with JWT Bearer authentication");
+    options.AddJwtBearerSecurity();
+    options.FilterByApiVersion("v1");
+});
+
+// Configurar versionamiento de API
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1);
@@ -31,10 +41,13 @@ builder.Services.AddApiVersioning(options =>
         options.SubstituteApiVersionInUrl = true;
     });
 
+// Validadores FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
+// Base de datos PostgreSQL
 builder.AddNpgsqlDbContext<MyAppContext>("identity");
 
+// Configurar ASP.NET Core Identity
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
     // Password settings
@@ -53,11 +66,14 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
     options.User.RequireUniqueEmail = true;
 
     // Sign in settings
-    options.SignIn.RequireConfirmedEmail = false; // Set to true in production
+    options.SignIn.RequireConfirmedEmail = false; // Cambiar a true en producción
 })
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<MyAppContext>()
 .AddDefaultTokenProviders();
+
+// JWT BEARER AUTHENTICATION (MÉTODO DE EXTENSIÓN)
+builder.Services.AddJwtAuthentication(builder.Configuration);
 
 var app = builder.Build();
 
@@ -66,21 +82,89 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 
-
     app.UseSwaggerUI(options =>
     {
-        options.SwaggerEndpoint("/openapi/v1.json", "v1");
-        //options.SwaggerEndpoint("/openapi/v1", "v1");
+        options.SwaggerEndpoint("/openapi/v1.json", "La Tiendecica Identity API V1");
     });
 
     using var scope = app.Services.CreateScope();
 
     var context = scope.ServiceProvider.GetRequiredService<MyAppContext>();
     await context.Database.MigrateAsync();
+
+    // CREAR ROLES INICIALES
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var roles = new[] { "Admin", "Customer" };
+
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole(role));
+            Console.WriteLine($"Rol '{role}' creado exitosamente.");
+        }
+        else
+        {
+            Console.WriteLine($"Rol '{role}' ya existe.");
+        }
+    }
+
+    // CREAR USUARIO ADMIN POR DEFECTO
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var adminEmail = "admin@admin.com";
+    var adminPassword = "Admin.1234";
+
+    var adminUser = await userManager.FindByEmailAsync(adminEmail);
+    if (adminUser == null)
+    {
+        adminUser = new IdentityUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            EmailConfirmed = true
+        };
+
+        var createResult = await userManager.CreateAsync(adminUser, adminPassword);
+
+        if (createResult.Succeeded)
+        {
+            await userManager.AddToRoleAsync(adminUser, "Admin");
+            Console.WriteLine("Usuario admin creado exitosamente:");
+            Console.WriteLine($"  Email: {adminEmail}");
+            Console.WriteLine($"  Password: {adminPassword}");
+            Console.WriteLine($"  Rol: Admin asignado");
+        }
+        else
+        {
+            Console.WriteLine("Error al crear usuario admin:");
+            foreach (var error in createResult.Errors)
+            {
+                Console.WriteLine($"  - {error.Description}");
+            }
+        }
+    }
+    else
+    {
+        Console.WriteLine($"Usuario admin '{adminEmail}' ya existe.");
+
+        var isInRole = await userManager.IsInRoleAsync(adminUser, "Admin");
+        if (!isInRole)
+        {
+            await userManager.AddToRoleAsync(adminUser, "Admin");
+            Console.WriteLine("Rol Admin asignado al usuario existente.");
+        }
+        else
+        {
+            Console.WriteLine("El usuario ya tiene rol Admin.");
+        }
+    }
 }
 
 app.UseHttpsRedirection();
 
+
+// MIDDLEWARE DE AUTENTICACIÓN (IMPORTANTE)
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
