@@ -11,7 +11,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Data
 
             // Use a placeholder connection string for migrations
             // The actual connection string will come from Aspire at runtime
-            optionsBuilder.UseNpgsql("Host=localhost;Database=identitydb;Username=postgres;Password=postgres");
+            optionsBuilder.UseNpgsql("Host=localhost;Database=identity;Username=postgres;Password=postgres");
 
             return new MyAppContext(optionsBuilder.Options);
         }

@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LaTiendecicaEnLinea.Api.Identity.Migrations
 {
     [DbContext(typeof(MyAppContext))]
-    [Migration("20251205183624_InitialIdentity")]
+    [Migration("20251206164624_InitialIdentity")]
     partial class InitialIdentity
     {
         /// <inheritdoc />

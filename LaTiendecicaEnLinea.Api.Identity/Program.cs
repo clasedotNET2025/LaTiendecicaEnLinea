@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using FluentValidation;
 using LaTiendecicaEnLinea.Api.Identity.Data;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,7 +33,7 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
-builder.AddNpgsqlDbContext<MyAppContext>("identity-db");
+builder.AddNpgsqlDbContext<MyAppContext>("identity");
 
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
@@ -54,7 +55,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
     // Sign in settings
     options.SignIn.RequireConfirmedEmail = false; // Set to true in production
 })
-//.AddRoles<IdentityRole>()
+.AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<MyAppContext>()
 .AddDefaultTokenProviders();
 
@@ -65,9 +66,11 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 
+
     app.UseSwaggerUI(options =>
     {
-        options.SwaggerEndpoint("/swagger/v1.json", "v1");
+        options.SwaggerEndpoint("/openapi/v1.json", "v1");
+        //options.SwaggerEndpoint("/openapi/v1", "v1");
     });
 
     using var scope = app.Services.CreateScope();

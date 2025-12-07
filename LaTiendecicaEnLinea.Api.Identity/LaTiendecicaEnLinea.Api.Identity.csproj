@@ -9,6 +9,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <Compile Remove="Validations\Auth\**" />
+	  <Content Remove="Validations\Auth\**" />
+	  <EmbeddedResource Remove="Validations\Auth\**" />
+	  <None Remove="Validations\Auth\**" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="Asp.Versioning.Http" />
 		<PackageReference Include="Asp.Versioning.Mvc" />
 		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
@@ -35,10 +42,6 @@
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
 		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
 		<PackageReference Include="Microsoft.OpenApi" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Folder Include="Validations\Auth\" />
 	</ItemGroup>
 
 	<ItemGroup>

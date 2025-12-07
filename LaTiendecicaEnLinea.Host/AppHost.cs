@@ -24,7 +24,8 @@ var redis = builder.AddRedis("redis")
     .WithRedisInsight();
 
 
-var db = postgres.AddDatabase("identity-db");
+var db = postgres.AddDatabase("identity");
+
 
 var identity = builder.AddProject<Projects.LaTiendecicaEnLinea_Api_Identity>("latiendecicaenlinea-api-identity")
     .WaitFor(db)
