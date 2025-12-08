@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using FluentValidation;
 using LaTiendecicaEnLinea.Api.Identity.Data;
+using LaTiendecicaEnLinea.Api.Identity.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OrderFlow.Identity.Extensions;
@@ -42,7 +43,7 @@ builder.Services.AddApiVersioning(options =>
     });
 
 // Validadores FluentValidation
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
 // Base de datos PostgreSQL
 builder.AddNpgsqlDbContext<MyAppContext>("identity");
@@ -72,6 +73,8 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<MyAppContext>()
 .AddDefaultTokenProviders();
 
+builder.Services.AddScoped<IUserService, UserService>();
+
 // JWT BEARER AUTHENTICATION (MÉTODO DE EXTENSIÓN)
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
@@ -94,9 +97,8 @@ if (app.Environment.IsDevelopment())
 
     // CREAR ROLES INICIALES
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var roles = new[] { "Admin", "Customer" };
 
-    foreach (var role in roles)
+    foreach (var role in Roles.GetAll())
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
@@ -132,7 +134,7 @@ if (app.Environment.IsDevelopment())
             Console.WriteLine("Usuario admin creado exitosamente:");
             Console.WriteLine($"  Email: {adminEmail}");
             Console.WriteLine($"  Password: {adminPassword}");
-            Console.WriteLine($"  Rol: Admin asignado");
+            Console.WriteLine($"  Rol: {Roles.Admin} asignado");
         }
         else
         {
@@ -150,12 +152,12 @@ if (app.Environment.IsDevelopment())
         var isInRole = await userManager.IsInRoleAsync(adminUser, "Admin");
         if (!isInRole)
         {
-            await userManager.AddToRoleAsync(adminUser, "Admin");
-            Console.WriteLine("Rol Admin asignado al usuario existente.");
+            await userManager.AddToRoleAsync(adminUser, Roles.Admin);
+            Console.WriteLine($"Rol {Roles.Admin} asignado al usuario existente.");
         }
         else
         {
-            Console.WriteLine("El usuario ya tiene rol Admin.");
+            Console.WriteLine($"El usuario ya tiene rol {Roles.Admin}.");
         }
     }
 }

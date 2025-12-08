@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using FluentValidation;
+using LaTiendecicaEnLinea.Api.Identity.Data;
 using LaTiendecicaEnLinea.Api.Identity.Dtos.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -33,7 +34,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             _logger = logger;
         }
 
-
         [HttpPost("register")]
         [AllowAnonymous]
         [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
@@ -54,7 +54,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Check if user already exists
             var existingUser = await _userManager.FindByEmailAsync(request.Email);
             if (existingUser != null)
             {
@@ -69,7 +68,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             {
                 UserName = request.Email,
                 Email = request.Email,
-                EmailConfirmed = true // Cambiar a false en producción con confirmación por email
+                EmailConfirmed = true
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -85,8 +84,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Add default role
-            await _userManager.AddToRoleAsync(user, "Customer");
+            await _userManager.AddToRoleAsync(user, Roles.Customer);
 
             _logger.LogInformation("User successfully registered: {UserId} - {Email}", user.Id, user.Email);
 
@@ -100,13 +98,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return CreatedAtAction(nameof(Login), new { }, response);
         }
 
-        /// <summary>
-        /// Login user
-        /// </summary>
-        /// <param name="request">Login credentials</param>
-        /// <param name="validator">Request validator</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>JWT token and user information</returns>
         [HttpPost("login")]
         [AllowAnonymous]
         [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
@@ -158,10 +149,8 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            // Get user roles
             var roles = await _userManager.GetRolesAsync(user);
 
-            // Generate JWT token
             var token = GenerateJwtToken(user, roles);
             var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
 
@@ -171,7 +160,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             {
                 AccessToken = token,
                 TokenType = "Bearer",
-                ExpiresIn = expiryMinutes * 60, // Convert to seconds
+                ExpiresIn = expiryMinutes * 60,
                 UserId = user.Id,
                 Email = user.Email!,
                 Roles = roles
@@ -180,10 +169,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Get current user information
-        /// </summary>
-        /// <returns>Current user information</returns>
         [HttpGet("me")]
         [Authorize]
         [ProducesResponseType<CurrentUserResponse>(StatusCodes.Status200OK)]
@@ -218,15 +203,11 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Admin only endpoint
-        /// </summary>
-        /// <returns>Admin confirmation message</returns>
         [HttpGet("admin-only")]
         [ProducesResponseType<AdminOnlyResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = Roles.Admin)]
         public ActionResult<AdminOnlyResponse> AdminOnly()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -264,7 +245,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 new(ClaimTypes.NameIdentifier, user.Id)
             };
 
-            // Add role claims
             claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
             var token = new JwtSecurityToken(

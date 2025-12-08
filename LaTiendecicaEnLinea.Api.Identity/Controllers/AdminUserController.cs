@@ -1,4 +1,5 @@
 ﻿using Asp.Versioning;
+using LaTiendecicaEnLinea.Api.Identity.Data;
 using LaTiendecicaEnLinea.Api.Identity.Dtos.Admin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -8,8 +9,8 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 {
     [ApiVersion(1)]
     [ApiController]
-    [Route("/api/v{version:apiVersion}/admin/users")]
-    [Authorize(Roles = "Admin")]
+    [Route("/api/v{version:apiVersion}/admin/users/[controller]")]
+    [Authorize(Roles = Roles.Admin)]
     public class AdminUserController : ControllerBase
     {
         private readonly UserManager<IdentityUser> _userManager;
@@ -26,11 +27,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             _logger = logger;
         }
 
-        /// <summary>
-        /// Get all users
-        /// </summary>
-        /// <returns>List of all users</returns>
-        [HttpGet]
+        [HttpGet("get_all_users")]
         [ProducesResponseType<IEnumerable<AdminUserResponse>>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -63,12 +60,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Get user by ID
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <returns>User details</returns>
-        [HttpGet("{userId}")]
+        [HttpGet("get_user_by_id/{userId}")]
         [ProducesResponseType<AdminUserDetailResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -98,7 +90,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 UserName = user.UserName!,
                 EmailConfirmed = user.EmailConfirmed,
                 Roles = roles.ToList(),
-                CreatedAt = user.Id, // Nota: Identity no guarda CreatedAt por defecto
+                CreatedAt = user.Id,
                 IsLocked = user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow,
                 LockoutEnd = user.LockoutEnd?.UtcDateTime
             };
@@ -108,12 +100,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Create a new user (admin only)
-        /// </summary>
-        /// <param name="request">User creation data</param>
-        /// <returns>Created user</returns>
-        [HttpPost]
+        [HttpPost("create_user")]
         [ProducesResponseType<AdminUserResponse>(StatusCodes.Status201Created)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -123,7 +110,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Admin creating new user: {Email}", request.Email);
 
-            // Check if user already exists
             var existingUser = await _userManager.FindByEmailAsync(request.Email);
             if (existingUser != null)
             {
@@ -138,7 +124,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             {
                 UserName = request.Email,
                 Email = request.Email,
-                EmailConfirmed = request.EmailConfirmed // Admin decide si confirmar email o no
+                EmailConfirmed = request.EmailConfirmed
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -154,7 +140,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Assign roles if provided
             if (request.Roles != null && request.Roles.Any())
             {
                 foreach (var role in request.Roles)
@@ -173,11 +158,9 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             }
             else
             {
-                // Default role if none provided
-                await _userManager.AddToRoleAsync(user, "Customer");
+                await _userManager.AddToRoleAsync(user, Roles.Customer);
             }
 
-            // Get final roles
             var userRoles = await _userManager.GetRolesAsync(user);
 
             _logger.LogInformation("User created successfully by admin: {UserId} - {Email}", user.Id, user.Email);
@@ -194,13 +177,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return CreatedAtAction(nameof(GetUserById), new { userId = user.Id }, response);
         }
 
-        /// <summary>
-        /// Update user information (admin only)
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <param name="request">Update data</param>
-        /// <returns>Updated user</returns>
-        [HttpPut("{userId}")]
+        [HttpPut("update_user/{userId}")]
         [ProducesResponseType<AdminUserResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -212,7 +189,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Admin updating user: {UserId}", userId);
 
-            // Find the user
             var user = await _userManager.FindByIdAsync(userId);
             if (user is null)
             {
@@ -225,7 +201,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Check if email is being changed and if new email already exists
             if (!string.IsNullOrEmpty(request.Email) && request.Email != user.Email)
             {
                 var existingUser = await _userManager.FindByEmailAsync(request.Email);
@@ -239,13 +214,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 }
 
                 user.Email = request.Email;
-                user.UserName = request.Email; // Identity suele requerir que UserName también cambie
-            }
-
-            // Update other fields if provided
-            if (!string.IsNullOrEmpty(request.PhoneNumber))
-            {
-                user.PhoneNumber = request.PhoneNumber;
+                user.UserName = request.Email;
             }
 
             if (request.EmailConfirmed.HasValue)
@@ -253,7 +222,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 user.EmailConfirmed = request.EmailConfirmed.Value;
             }
 
-            // Update the user
             var updateResult = await _userManager.UpdateAsync(user);
 
             if (!updateResult.Succeeded)
@@ -269,7 +237,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 
             _logger.LogInformation("User updated successfully: {UserId}", userId);
 
-            // Get updated roles
             var userRoles = await _userManager.GetRolesAsync(user);
 
             var response = new AdminUserResponse
@@ -284,12 +251,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Delete user (admin only)
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <returns>No content</returns>
-        [HttpDelete("{userId}")]
+        [HttpDelete("delete_user/{userId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -299,7 +261,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Admin deleting user: {UserId}", userId);
 
-            // Find the user
             var user = await _userManager.FindByIdAsync(userId);
             if (user is null)
             {
@@ -312,8 +273,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Prevent deletion of admin user (optional but recommended)
-            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+            var isAdmin = await _userManager.IsInRoleAsync(user, Roles.Admin);
             if (isAdmin)
             {
                 _logger.LogWarning("Attempted to delete admin user: {UserId} ({Email})", userId, user.Email);
@@ -323,10 +283,8 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Get user roles to log
             var userRoles = await _userManager.GetRolesAsync(user);
 
-            // Delete the user
             var result = await _userManager.DeleteAsync(user);
 
             if (!result.Succeeded)
@@ -346,13 +304,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return NoContent();
         }
 
-        /// <summary>
-        /// Lock user account (admin only)
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <param name="request">Lock request with optional duration</param>
-        /// <returns>No content</returns>
-        [HttpPost("{userId}/lock")]
+        [HttpPost("lock/{userId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -364,7 +316,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Admin locking user: {UserId}", userId);
 
-            // Find the user
             var user = await _userManager.FindByIdAsync(userId);
             if (user is null)
             {
@@ -377,26 +328,22 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Calculate lockout end time
             DateTimeOffset? lockoutEnd = null;
 
             if (request?.LockoutMinutes.HasValue == true && request.LockoutMinutes.Value > 0)
             {
-                // Lock for specific minutes
                 lockoutEnd = DateTimeOffset.UtcNow.AddMinutes(request.LockoutMinutes.Value);
                 _logger.LogInformation("Locking user {UserId} for {Minutes} minutes until {LockoutEnd}",
                     userId, request.LockoutMinutes.Value, lockoutEnd);
             }
             else
             {
-                // Permanent lock (or until admin unlocks)
                 lockoutEnd = DateTimeOffset.MaxValue;
                 _logger.LogInformation("Locking user {UserId} permanently", userId);
             }
 
-            // Set lockout
             user.LockoutEnd = lockoutEnd;
-            user.LockoutEnabled = true; // Asegurar que está habilitado
+            user.LockoutEnabled = true;
 
             var result = await _userManager.UpdateAsync(user);
 
@@ -417,12 +364,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return NoContent();
         }
 
-        /// <summary>
-        /// Unlock user account (admin only)
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <returns>No content</returns>
-        [HttpPost("{userId}/unlock")]
+        [HttpPost("unlock/{userId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -432,7 +374,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Admin unlocking user: {UserId}", userId);
 
-            // Find the user
             var user = await _userManager.FindByIdAsync(userId);
             if (user is null)
             {
@@ -445,16 +386,13 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Check if user is actually locked
             if (user.LockoutEnd == null || user.LockoutEnd <= DateTimeOffset.UtcNow)
             {
                 _logger.LogInformation("User {UserId} is not currently locked", userId);
-                // No es error, solo informamos
             }
 
-            // Unlock the user
             user.LockoutEnd = null;
-            user.AccessFailedCount = 0; // Reset failed attempts
+            user.AccessFailedCount = 0;
 
             var result = await _userManager.UpdateAsync(user);
 
@@ -474,12 +412,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return NoContent();
         }
 
-        /// <summary>
-        /// Get user's roles
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <returns>List of role names</returns>
-        [HttpGet("{userId}/roles")]
+        [HttpGet("get_roles/{userId}")]
         [ProducesResponseType<UserRolesResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -488,7 +421,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Fetching roles for user: {UserId}", userId);
 
-            // Find the user
             var user = await _userManager.FindByIdAsync(userId);
             if (user is null)
             {
@@ -501,7 +433,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Get user roles
             var roles = await _userManager.GetRolesAsync(user);
 
             var response = new UserRolesResponse
@@ -517,12 +448,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Assign role to user
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <param name="roleName">Role name to assign</param>
-        /// <returns>Success message</returns>
         [HttpPost("{userId}/roles/{roleName}")]
         [ProducesResponseType<RoleAssignmentResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -535,7 +460,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Assigning role {RoleName} to user: {UserId}", roleName, userId);
 
-            // Find the user
             var user = await _userManager.FindByIdAsync(userId);
             if (user is null)
             {
@@ -548,7 +472,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Check if role exists
             var roleExists = await _roleManager.RoleExistsAsync(roleName);
             if (!roleExists)
             {
@@ -561,7 +484,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Check if user already has the role
             var isInRole = await _userManager.IsInRoleAsync(user, roleName);
             if (isInRole)
             {
@@ -572,7 +494,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Assign the role
             var result = await _userManager.AddToRoleAsync(user, roleName);
 
             if (!result.Succeeded)
@@ -600,12 +521,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Remove role from user
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <param name="roleName">Role name to remove</param>
-        /// <returns>No content</returns>
         [HttpDelete("{userId}/roles/{roleName}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -618,7 +533,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Removing role {RoleName} from user: {UserId}", roleName, userId);
 
-            // Find the user
             var user = await _userManager.FindByIdAsync(userId);
             if (user is null)
             {
@@ -631,7 +545,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Check if role exists
             var roleExists = await _roleManager.RoleExistsAsync(roleName);
             if (!roleExists)
             {
@@ -644,7 +557,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Check if user has the role
             var isInRole = await _userManager.IsInRoleAsync(user, roleName);
             if (!isInRole)
             {
@@ -655,14 +567,13 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Check if trying to remove last Admin role from last Admin user
-            if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            if (roleName.Equals(Roles.Admin, StringComparison.OrdinalIgnoreCase))
             {
-                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+                var isAdmin = await _userManager.IsInRoleAsync(user, Roles.Admin);
                 if (isAdmin)
                 {
-                    var allAdmins = await _userManager.GetUsersInRoleAsync("Admin");
-                    if (allAdmins.Count <= 1) // Este usuario es el ÚNICO admin
+                    var allAdmins = await _userManager.GetUsersInRoleAsync(Roles.Admin);
+                    if (allAdmins.Count <= 1)
                     {
                         _logger.LogWarning("Cannot remove Admin role from last admin user: {UserId}", userId);
                         return Problem(
@@ -673,7 +584,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 }
             }
 
-            // Remove the role
             var result = await _userManager.RemoveFromRoleAsync(user, roleName);
 
             if (!result.Succeeded)

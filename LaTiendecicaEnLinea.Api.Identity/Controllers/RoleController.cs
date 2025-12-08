@@ -1,7 +1,7 @@
 ﻿using Asp.Versioning;
 using FluentValidation;
+using LaTiendecicaEnLinea.Api.Identity.Data;
 using LaTiendecicaEnLinea.Api.Identity.Dtos.Roles;
-using LaTiendecicaEnLinea.Api.Identity.Validations.Roles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -10,8 +10,8 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 {
     [ApiVersion(1)]
     [ApiController]
-    [Route("/api/v{version:apiVersion}/admin/roles")]
-    [Authorize(Roles = "Admin")]
+    [Route("/api/v{version:apiVersion}/admin/roles/[controller]")]
+    [Authorize(Roles = Roles.Admin)]
     public class RoleController : ControllerBase
     {
         private readonly RoleManager<IdentityRole> _roleManager;
@@ -28,11 +28,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             _userManager = userManager;
         }
 
-        /// <summary>
-        /// Get all roles
-        /// </summary>
-        /// <returns>List of all roles</returns>
-        [HttpGet]
+        [HttpGet("get_roles")]
         [ProducesResponseType<IEnumerable<RoleResponse>>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -52,12 +48,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Get role by ID
-        /// </summary>
-        /// <param name="roleId">Role ID</param>
-        /// <returns>Role details</returns>
-        [HttpGet("{roleId}")]
+        [HttpGet("get_role/{roleId}")]
         [ProducesResponseType<RoleDetailResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -90,14 +81,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Create a new role
-        /// </summary>
-        /// <param name="request">Role creation data</param>
-        /// <param name="validator">Request validator</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>Created role</returns>
-        [HttpPost]
+        [HttpPost("create")]
         [ProducesResponseType<RoleResponse>(StatusCodes.Status201Created)]
         [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -120,7 +104,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 
             _logger.LogInformation("Creating role: {RoleName}", request.RoleName);
 
-            // Check if role already exists
             var existingRole = await _roleManager.FindByNameAsync(request.RoleName);
             if (existingRole != null)
             {
@@ -157,15 +140,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return CreatedAtAction(nameof(GetRoleById), new { roleId = role.Id }, response);
         }
 
-        /// <summary>
-        /// Update role name
-        /// </summary>
-        /// <param name="roleId">Role ID</param>
-        /// <param name="request">Update data</param>
-        /// <param name="validator">Request validator</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>Updated role</returns>
-        [HttpPut("{roleId}")]
+        [HttpPut("update/{roleId}")]
         [ProducesResponseType<RoleResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -190,7 +165,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 
             _logger.LogInformation("Updating role: {RoleId} to {NewName}", roleId, request.RoleName);
 
-            // Find the role
             var role = await _roleManager.FindByIdAsync(roleId);
             if (role is null)
             {
@@ -203,7 +177,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Check if new name already exists (excluding current role)
             var existingRole = await _roleManager.FindByNameAsync(request.RoleName);
             if (existingRole != null && existingRole.Id != roleId)
             {
@@ -214,7 +187,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Update the role
             role.Name = request.RoleName;
             role.NormalizedName = request.RoleName.ToUpperInvariant();
 
@@ -243,12 +215,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        /// <summary>
-        /// Delete role (automatically removes users from role before deletion)
-        /// </summary>
-        /// <param name="roleId">Role ID</param>
-        /// <returns>No content</returns>
-        [HttpDelete("{roleId}")]
+        [HttpDelete("delete/{roleId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -258,7 +225,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Attempting to delete role: {RoleId}", roleId);
 
-            // Find the role
             var role = await _roleManager.FindByIdAsync(roleId);
             if (role is null)
             {
@@ -271,7 +237,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Prevent deletion of system/default roles (optional but recommended)
             if (IsSystemRole(role.Name!))
             {
                 _logger.LogWarning("Attempted to delete system role: {RoleName}", role.Name);
@@ -281,7 +246,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Get users in role and remove them first
             var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!);
             if (usersInRole.Any())
             {
@@ -296,14 +260,12 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                         var errors = removeResult.Errors.Select(e => e.Description);
                         _logger.LogWarning("Failed to remove user {UserId} from role {RoleName}: {Errors}",
                             user.Id, role.Name, string.Join(", ", errors));
-                        // Continue with other users, or return error based on your requirements
                     }
                 }
 
                 _logger.LogInformation("Successfully removed all users from role {RoleName}", role.Name);
             }
 
-            // Delete the role
             var result = await _roleManager.DeleteAsync(role);
 
             if (!result.Succeeded)
@@ -323,12 +285,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return NoContent();
         }
 
-        /// <summary>
-        /// Get users in a role
-        /// </summary>
-        /// <param name="roleId">Role ID</param>
-        /// <returns>List of users in the role</returns>
-        [HttpGet("{roleId}/users")]
+        [HttpGet("get/{roleId}/users")]
         [ProducesResponseType<IEnumerable<UserInRoleResponse>>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -337,7 +294,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         {
             _logger.LogInformation("Fetching users for role: {RoleId}", roleId);
 
-            // Find the role
             var role = await _roleManager.FindByIdAsync(roleId);
             if (role is null)
             {
@@ -350,12 +306,10 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 });
             }
 
-            // Get users in role
             var users = await _userManager.GetUsersInRoleAsync(role.Name!);
 
             _logger.LogInformation("Found {UserCount} users in role {RoleName}", users.Count, role.Name);
 
-            // Transform to response DTOs
             var response = users.Select(user => new UserInRoleResponse
             {
                 UserId = user.Id,
@@ -369,10 +323,9 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
-        // Helper method to identify system roles
         private bool IsSystemRole(string roleName)
         {
-            var systemRoles = new[] { "Admin", "Customer", "SuperAdmin", "System" };
+            var systemRoles = new[] { Roles.Admin, Roles.Customer, "SuperAdmin", "System" };
             return systemRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase);
         }
     }
