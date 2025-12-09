@@ -23,30 +23,31 @@ var redis = builder.AddRedis("redis")
     .WithDataVolume("redis-data-identity")
     .WithRedisInsight();
 
-
-var db = postgres.AddDatabase("identity");
-
+// Identity Database
+var identityDb = postgres.AddDatabase("identity");
 
 var identity = builder.AddProject<Projects.LaTiendecicaEnLinea_Api_Identity>("latiendecicaenlinea-api-identity")
-    .WaitFor(db)
+    .WaitFor(identityDb)
     .WaitFor(rabbit)
     .WithReference(rabbit)
-    .WithReference(db);
+    .WithReference(identityDb);
 
+// Catalog Database - FIXED
 var catalogDb = postgres.AddDatabase("catalogdb");
-
 
 var catalog = builder.AddProject<Projects.LaTiendecicaEnLinea_Catalog>("latiendecicaenlinea-catalog")
     .WaitFor(catalogDb)
-    .WaitFor(catalogDb);
-
+    .WithReference(catalogDb)  // This adds the connection string automatically
+    .WaitFor(rabbit)  // Add if Catalog uses RabbitMQ
+    .WithReference(rabbit);  // Add if Catalog uses RabbitMQ
 
 builder.AddProject<Projects.LaTiendecicaEnLinea_ApiGateway>("latiendecicaenlinea-apigateway")
     .WithReference(redis)
     .WithReference(identity)
+    .WithReference(catalog)  // Add reference to catalog if gateway needs it
     .WaitFor(redis)
-    .WaitFor(identity);
-
+    .WaitFor(identity)
+    .WaitFor(catalog);
 
 builder.AddProject<Projects.LaTiendecicaEnLinea_Notifications>("latiendecicaenlinea-notifications")
     .WaitFor(rabbit)
