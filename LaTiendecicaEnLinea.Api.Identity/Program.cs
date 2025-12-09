@@ -2,10 +2,10 @@ using Asp.Versioning;
 using FluentValidation;
 using LaTiendecicaEnLinea.Api.Identity.Data;
 using LaTiendecicaEnLinea.Api.Identity.Services;
+using LaTiendecicaEnLinea.Identity.Extensions;
+using LaTiendecicaEnLinea.Shared.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using OrderFlow.Identity.Extensions;
-using OrderFlow.Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 

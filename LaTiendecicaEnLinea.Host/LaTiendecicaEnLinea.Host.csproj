@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LaTiendecicaEnLinea.Api.Identity\LaTiendecicaEnLinea.Api.Identity.csproj" />
     <ProjectReference Include="..\LaTiendecicaEnLinea.ApiGateway\LaTiendecicaEnLinea.ApiGateway.csproj" />
+    <ProjectReference Include="..\LaTiendecicaEnLinea.Catalog\LaTiendecicaEnLinea.Catalog.csproj" />
     <ProjectReference Include="..\LaTiendecicaEnLinea.Notifications\LaTiendecicaEnLinea.Notifications.csproj" />
   </ItemGroup>
 

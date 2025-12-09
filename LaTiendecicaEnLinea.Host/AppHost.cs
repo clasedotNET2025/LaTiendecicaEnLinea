@@ -33,6 +33,13 @@ var identity = builder.AddProject<Projects.LaTiendecicaEnLinea_Api_Identity>("la
     .WithReference(rabbit)
     .WithReference(db);
 
+var catalogDb = postgres.AddDatabase("catalogdb");
+
+
+var catalog = builder.AddProject<Projects.LaTiendecicaEnLinea_Catalog>("latiendecicaenlinea-catalog")
+    .WaitFor(catalogDb)
+    .WaitFor(catalogDb);
+
 
 builder.AddProject<Projects.LaTiendecicaEnLinea_ApiGateway>("latiendecicaenlinea-apigateway")
     .WithReference(redis)
@@ -44,6 +51,5 @@ builder.AddProject<Projects.LaTiendecicaEnLinea_ApiGateway>("latiendecicaenlinea
 builder.AddProject<Projects.LaTiendecicaEnLinea_Notifications>("latiendecicaenlinea-notifications")
     .WaitFor(rabbit)
     .WithReference(rabbit);
-
 
 builder.Build().Run();

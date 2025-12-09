@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36623.8 d17.14
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11222.15 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Elementos de la solución", "Elementos de la solución", "{D107F4C8-89CC-BEA8-D3D7-CA6B7733353D}"
 	ProjectSection(SolutionItems) = preProject
@@ -19,6 +19,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Shared", "LaTiendecicaEnLinea.Shared\LaTiendecicaEnLinea.Shared.csproj", "{F5252B45-C627-47D9-9886-356F8C7C4D66}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.ServiceDefaults", "LaTiendecicaEnLinea.ServiceDefaults\LaTiendecicaEnLinea.ServiceDefaults.csproj", "{B269AD62-6423-44CC-977F-40732E570C54}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Catalog", "LaTiendecicaEnLinea.Catalog\LaTiendecicaEnLinea.Catalog.csproj", "{D8A4FAC8-649C-549C-7C30-6E42784ABC2C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -50,6 +52,10 @@ Global
 		{B269AD62-6423-44CC-977F-40732E570C54}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B269AD62-6423-44CC-977F-40732E570C54}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B269AD62-6423-44CC-977F-40732E570C54}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D8A4FAC8-649C-549C-7C30-6E42784ABC2C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8A4FAC8-649C-549C-7C30-6E42784ABC2C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8A4FAC8-649C-549C-7C30-6E42784ABC2C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8A4FAC8-649C-549C-7C30-6E42784ABC2C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

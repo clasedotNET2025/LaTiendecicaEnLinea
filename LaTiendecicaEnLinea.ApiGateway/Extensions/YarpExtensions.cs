@@ -1,34 +1,42 @@
-﻿namespace LaTiendecicaEnLinea.ApiGateway.Extensions
+﻿// LaTiendecicaEnLinea.ApiGateway/Extensions/YarpExtensions.cs
+using Microsoft.AspNetCore.HttpOverrides;
+
+namespace LaTiendecicaEnLinea.ApiGateway.Extensions;
+
+public static class YarpExtensions
 {
-    public static class YarpExtensions
+    public static IServiceCollection AddYarpReverseProxy(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
-        public static IServiceCollection AddYarpReverseProxy(this IServiceCollection services, IConfiguration configuration)
+        services.Configure<ForwardedHeadersOptions>(options =>
         {
-            // Add service discovery for resolving service names
-            services.AddServiceDiscovery();
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                                      ForwardedHeaders.XForwardedProto |
+                                      ForwardedHeaders.XForwardedHost;
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
 
-            // Configure YARP with service discovery
-            services.AddReverseProxy()
-                .LoadFromConfig(configuration.GetSection("ReverseProxy"))
-                .AddServiceDiscoveryDestinationResolver();
+        services.AddReverseProxy()
+            .LoadFromConfig(configuration.GetSection("ReverseProxy"));
 
-            return services;
-        }
+        return services;
+    }
 
-        public static IServiceCollection AddGatewayCors(
-            this IServiceCollection services)
+    public static IServiceCollection AddGatewayCors(
+        this IServiceCollection services)
+    {
+        services.AddCors(options =>
         {
-            services.AddCors(options =>
+            options.AddDefaultPolicy(policy =>
             {
-                options.AddDefaultPolicy(policy =>
-                {
-                    policy.AllowAnyOrigin()
-                          .AllowAnyHeader()
-                          .AllowAnyMethod();
-                });
+                policy.AllowAnyOrigin()
+                      .AllowAnyHeader()
+                      .AllowAnyMethod();
             });
+        });
 
-            return services;
-        }
+        return services;
     }
 }

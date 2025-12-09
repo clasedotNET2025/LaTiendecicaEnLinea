@@ -5,7 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
 
-namespace OrderFlow.Shared.Extensions;
+namespace LaTiendecicaEnLinea.Shared.Extensions;
 
 /// <summary>
 /// Shared JWT Bearer authentication configuration for microservices.
