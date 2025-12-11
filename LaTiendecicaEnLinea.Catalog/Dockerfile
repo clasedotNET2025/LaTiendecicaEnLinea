@@ -13,21 +13,19 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["Directory.Packages.props", "."]
-COPY ["LaTiendecicaEnLinea.Api.Identity/LaTiendecicaEnLinea.Api.Identity.csproj", "LaTiendecicaEnLinea.Api.Identity/"]
-COPY ["LaTiendecicaEnLinea.ServiceDefaults/LaTiendecicaEnLinea.ServiceDefaults.csproj", "LaTiendecicaEnLinea.ServiceDefaults/"]
-COPY ["LaTiendecicaEnLinea.Shared/LaTiendecicaEnLinea.Shared.csproj", "LaTiendecicaEnLinea.Shared/"]
-RUN dotnet restore "./LaTiendecicaEnLinea.Api.Identity/LaTiendecicaEnLinea.Api.Identity.csproj"
+COPY ["LaTiendecicaEnLinea.Catalog/LaTiendecicaEnLinea.Catalog.csproj", "LaTiendecicaEnLinea.Catalog/"]
+RUN dotnet restore "./LaTiendecicaEnLinea.Catalog/LaTiendecicaEnLinea.Catalog.csproj"
 COPY . .
-WORKDIR "/src/LaTiendecicaEnLinea.Api.Identity"
-RUN dotnet build "./LaTiendecicaEnLinea.Api.Identity.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/LaTiendecicaEnLinea.Catalog"
+RUN dotnet build "./LaTiendecicaEnLinea.Catalog.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Esta fase se usa para publicar el proyecto de servicio que se copiará en la fase final.
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./LaTiendecicaEnLinea.Api.Identity.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./LaTiendecicaEnLinea.Catalog.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # Esta fase se usa en producción o cuando se ejecuta desde VS en modo normal (valor predeterminado cuando no se usa la configuración de depuración)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "LaTiendecicaEnLinea.Api.Identity.dll"]
+ENTRYPOINT ["dotnet", "LaTiendecicaEnLinea.Catalog.dll"]

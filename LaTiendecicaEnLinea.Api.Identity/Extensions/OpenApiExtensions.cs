@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace OrderFlow.Identity.Extensions;
+namespace LaTiendecicaEnLinea.Identity.Extensions;
 
 public static class OpenApiExtensions
 {

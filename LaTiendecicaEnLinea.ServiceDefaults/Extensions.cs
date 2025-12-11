@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -51,28 +52,16 @@ public static class Extensions
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics =>
             {
-                metrics.AddHttpClientInstrumentation()
+                metrics.AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation();
-
-                // Only add ASP.NET Core metrics for web applications
-                if (builder is WebApplicationBuilder)
-                {
-                    metrics.AddAspNetCoreInstrumentation();
-                }
             })
             .WithTracing(tracing =>
             {
-                tracing.AddHttpClientInstrumentation()
-                    .AddSource("MassTransit");
-
-                // Only add ASP.NET Core tracing for web applications
-                if (builder is WebApplicationBuilder)
-                {
-                    tracing.AddAspNetCoreInstrumentation();
-                }
-
-                // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
-                //.AddGrpcClientInstrumentation()
+                tracing.AddAspNetCoreInstrumentation()
+                    // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
+                    //.AddGrpcClientInstrumentation()
+                    .AddHttpClientInstrumentation();
             });
 
         builder.AddOpenTelemetryExporters();

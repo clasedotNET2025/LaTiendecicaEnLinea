@@ -1,0 +1,6 @@
+@LaTiendecicaEnLinea.Catalog_HostAddress = http://localhost:5052
+
+GET {{LaTiendecicaEnLinea.Catalog_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

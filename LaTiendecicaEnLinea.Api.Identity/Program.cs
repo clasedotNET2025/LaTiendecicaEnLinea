@@ -2,10 +2,11 @@ using Asp.Versioning;
 using FluentValidation;
 using LaTiendecicaEnLinea.Api.Identity.Data;
 using LaTiendecicaEnLinea.Api.Identity.Services;
+using LaTiendecicaEnLinea.Identity.Extensions;
+using LaTiendecicaEnLinea.Shared.Extensions;
+using MassTransit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using OrderFlow.Identity.Extensions;
-using OrderFlow.Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,22 @@ builder.Services.AddOpenApi("v1", options =>
         "Authentication API using Controllers with JWT Bearer authentication");
     options.AddJwtBearerSecurity();
     options.FilterByApiVersion("v1");
+});
+
+builder.Services.AddMassTransit(config =>
+{
+    config.UsingRabbitMq((context, cfg) =>
+    {
+        var configuration = context.GetRequiredService<IConfiguration>();
+        var connectionString = configuration.GetConnectionString("rabbitmq");
+
+        if (!string.IsNullOrEmpty(connectionString))
+        {
+            cfg.Host(new Uri(connectionString));
+        }
+
+        cfg.ConfigureEndpoints(context);
+    });
 });
 
 // Configurar versionamiento de API
