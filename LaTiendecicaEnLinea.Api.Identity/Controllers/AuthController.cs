@@ -2,6 +2,8 @@
 using FluentValidation;
 using LaTiendecicaEnLinea.Api.Identity.Data;
 using LaTiendecicaEnLinea.Api.Identity.Dtos.Auth;
+using LaTiendecicaEnLinea.Shared;
+using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -21,17 +23,20 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
+        private readonly IPublishEndpoint _publishEndpoint;
 
         public AuthController(
             UserManager<IdentityUser> userManager,
             SignInManager<IdentityUser> signInManager,
             IConfiguration configuration,
-            ILogger<AuthController> logger)
+            ILogger<AuthController> logger,
+            IPublishEndpoint publishEndpoint)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _configuration = configuration;
             _logger = logger;
+            _publishEndpoint = publishEndpoint;
         }
 
         [HttpPost("register")]
@@ -87,6 +92,21 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             await _userManager.AddToRoleAsync(user, Roles.Customer);
 
             _logger.LogInformation("User successfully registered: {UserId} - {Email}", user.Id, user.Email);
+
+            try
+            {
+                await _publishEndpoint.Publish(new UserCreatedEvent(
+                    userId: user.Id,
+                    email: user.Email
+                ), cancellationToken);
+
+                _logger.LogInformation("UserCreatedEvent published for user: {UserId}", user.Id);
+            }
+            catch (Exception ex)
+            {
+                // Log del error pero no fallar el registro
+                _logger.LogError(ex, "Failed to publish UserCreatedEvent for user: {UserId}. User was still created.", user.Id);
+            }
 
             var response = new RegisterResponse
             {

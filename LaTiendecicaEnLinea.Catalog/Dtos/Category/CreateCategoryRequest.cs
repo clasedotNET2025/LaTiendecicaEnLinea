@@ -1,8 +1,17 @@
-﻿namespace LaTiendecicaEnLinea.Catalog.Dtos.Category
+﻿namespace LaTiendecicaEnLinea.Catalog.Dtos.Category;
+
+/// <summary>
+/// Request for creating a new category
+/// </summary>
+public class CreateCategoryRequest
 {
-    public class CreateCategoryRequest
-    {
-        public required string Name { get; set; }
-        public string? Description { get; set; }
-    }
+    /// <summary>
+    /// Category name
+    /// </summary>
+    public required string Name { get; set; }
+
+    /// <summary>
+    /// Category description
+    /// </summary>
+    public string? Description { get; set; }
 }

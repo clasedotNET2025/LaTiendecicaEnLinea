@@ -42,6 +42,10 @@ builder.Services.AddMassTransit(config =>
     });
 });
 
+builder.Services.AddScoped<IPublishEndpoint>(provider =>
+    provider.GetRequiredService<IBus>()
+);
+
 // Configurar versionamiento de API
 builder.Services.AddApiVersioning(options =>
 {

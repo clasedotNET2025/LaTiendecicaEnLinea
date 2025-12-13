@@ -1,22 +1,39 @@
-﻿// Data/CatalogDbContext.cs - VERSIÓN MEJORADA (sin Identity)
-using LaTiendecicaEnLinea.Catalog.Entities;
+﻿using LaTiendecicaEnLinea.Catalog.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace LaTiendecicaEnLinea.Catalog.Data;
 
+/// <summary>
+/// Database context for Catalog microservice
+/// </summary>
 public class CatalogDbContext : DbContext
 {
+    /// <summary>
+    /// Initializes a new instance of the CatalogDbContext class
+    /// </summary>
+    /// <param name="options">Database context options</param>
     public CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         : base(options)
     {
     }
 
+    /// <summary>
+    /// Gets or sets the Categories database set
+    /// </summary>
     public DbSet<Category> Categories => Set<Category>();
+
+    /// <summary>
+    /// Gets or sets the Products database set
+    /// </summary>
     public DbSet<Product> Products => Set<Product>();
 
+    /// <summary>
+    /// Configures the database model
+    /// </summary>
+    /// <param name="modelBuilder">Model builder instance</param>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Configuración específica para PostgreSQL
+        // PostgreSQL specific configuration
         modelBuilder.HasPostgresExtension("uuid-ossp");
 
         // Category configuration
@@ -27,7 +44,7 @@ public class CatalogDbContext : DbContext
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.HasIndex(e => e.Name).IsUnique();
 
-            // Para PostgreSQL - autoincrement (IGUAL que Identity)
+            // PostgreSQL auto-increment configuration
             entity.Property(e => e.Id)
                 .UseIdentityAlwaysColumn()
                 .ValueGeneratedOnAdd();
@@ -43,23 +60,21 @@ public class CatalogDbContext : DbContext
                 .HasPrecision(18, 2);
 
             entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.CategoryId);
 
-            // Para PostgreSQL - autoincrement (IGUAL que Identity)
+            // PostgreSQL auto-increment configuration
             entity.Property(e => e.Id)
                 .UseIdentityAlwaysColumn()
                 .ValueGeneratedOnAdd();
 
-            // Relationship
+            // Relationship with Category
             entity.HasOne(p => p.Category)
                 .WithMany(c => c.Products)
                 .HasForeignKey(p => p.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasIndex(p => p.IsActive);
-            entity.HasIndex(p => p.CategoryId);
         });
 
-        // Asegúrate de llamar al base
         base.OnModelCreating(modelBuilder);
     }
 }

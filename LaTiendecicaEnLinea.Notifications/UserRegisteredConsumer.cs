@@ -15,15 +15,15 @@ internal class UserRegisteredConsumer : IConsumer<UserCreatedEvent>
         _emailService = emailService;
     }
 
-    public Task Consume(ConsumeContext<UserCreatedEvent> context)
+    public async Task Consume(ConsumeContext<UserCreatedEvent> context)
     {
 
         var user = context.Message;
 
         _logger.LogInformation("New user registered: {UserId}, Email: {Email}", user.userId, user.email);
 
-        _emailService.SendWelcomeMail(user.email);
+        await _emailService.SendWelcomeMail(user.email);
 
-        return Task.CompletedTask;
+        _logger.LogInformation("Welcome email sent for user: {UserId}", user.userId);
     }
 }

@@ -22,6 +22,7 @@
     <ProjectReference Include="..\LaTiendecicaEnLinea.ApiGateway\LaTiendecicaEnLinea.ApiGateway.csproj" />
     <ProjectReference Include="..\LaTiendecicaEnLinea.Catalog\LaTiendecicaEnLinea.Catalog.csproj" />
     <ProjectReference Include="..\LaTiendecicaEnLinea.Notifications\LaTiendecicaEnLinea.Notifications.csproj" />
+    <ProjectReference Include="..\LaTiendecicaEnLinea.Orders\LaTiendecicaEnLinea.Orders.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,74 +1,92 @@
 ﻿using LaTiendecicaEnLinea.Catalog.Data;
 using LaTiendecicaEnLinea.Shared.Common;
 
-namespace LaTiendecicaEnLinea.Catalog.Services
+namespace LaTiendecicaEnLinea.Catalog.Services;
+
+/// <summary>
+/// Service for stock management operations
+/// </summary>
+public class StockService : IStockService
 {
-    public class StockService : IStockService
+    private readonly CatalogDbContext _context;
+
+    /// <summary>
+    /// Initializes a new instance of the StockService class
+    /// </summary>
+    /// <param name="context">Database context</param>
+    public StockService(CatalogDbContext context)
     {
-        private readonly CatalogDbContext _context;
+        _context = context;
+    }
 
-        public StockService(CatalogDbContext context)
+    /// <summary>
+    /// Reserves stock for a product
+    /// </summary>
+    /// <param name="productId">Product identifier</param>
+    /// <param name="quantity">Quantity to reserve</param>
+    /// <returns>Service result indicating operation status</returns>
+    public async Task<ServiceResult> ReserveStockAsync(int productId, int quantity)
+    {
+        try
         {
-            _context = context;
+            var product = await _context.Products.FindAsync(productId);
+
+            if (product == null)
+            {
+                return ServiceResult.NotFound($"Product with ID {productId} not found");
+            }
+
+            if (!product.IsActive)
+            {
+                return ServiceResult.ValidationError("Product is not active");
+            }
+
+            if (product.Stock < quantity)
+            {
+                return ServiceResult.ValidationError(
+                    $"Insufficient stock. Available stock: {product.Stock}, requested quantity: {quantity}");
+            }
+
+            product.Stock -= quantity;
+            product.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return ServiceResult.Success($"Stock reserved. New stock: {product.Stock}");
         }
-
-        public async Task<ServiceResult> ReserveStockAsync(int productId, int quantity)
+        catch (Exception ex)
         {
-            try
-            {
-                var product = await _context.Products.FindAsync(productId);
-
-                if (product == null)
-                {
-                    return ServiceResult.NotFound($"Producto con ID {productId} no encontrado");
-                }
-
-                if (!product.IsActive)
-                {
-                    return ServiceResult.ValidationError("El producto no está activo");
-                }
-
-                if (product.Stock < quantity)
-                {
-                    return ServiceResult.ValidationError(
-                        $"Stock insuficiente. Stock disponible: {product.Stock}, cantidad solicitada: {quantity}");
-                }
-
-                product.Stock -= quantity;
-                product.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                return ServiceResult.Success($"Stock reservado. Nuevo stock: {product.Stock}");
-            }
-            catch (Exception ex)
-            {
-                return ServiceResult.Failure($"Error al reservar stock: {ex.Message}");
-            }
+            return ServiceResult.Failure($"Error reserving stock: {ex.Message}");
         }
+    }
 
-        public async Task<ServiceResult> ReleaseStockAsync(int productId, int quantity)
+    /// <summary>
+    /// Releases previously reserved stock for a product
+    /// </summary>
+    /// <param name="productId">Product identifier</param>
+    /// <param name="quantity">Quantity to release</param>
+    /// <returns>Service result indicating operation status</returns>
+    public async Task<ServiceResult> ReleaseStockAsync(int productId, int quantity)
+    {
+        try
         {
-            try
+            var product = await _context.Products.FindAsync(productId);
+
+            if (product == null)
             {
-                var product = await _context.Products.FindAsync(productId);
-
-                if (product == null)
-                {
-                    return ServiceResult.NotFound($"Producto con ID {productId} no encontrado");
-                }
-
-                product.Stock += quantity;
-                product.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                return ServiceResult.Success($"Stock liberado. Nuevo stock: {product.Stock}");
+                return ServiceResult.NotFound($"Product with ID {productId} not found");
             }
-            catch (Exception ex)
-            {
-                return ServiceResult.Failure($"Error al liberar stock: {ex.Message}");
-            }
+
+            product.Stock += quantity;
+            product.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return ServiceResult.Success($"Stock released. New stock: {product.Stock}");
+        }
+        catch (Exception ex)
+        {
+            return ServiceResult.Failure($"Error releasing stock: {ex.Message}");
         }
     }
 }

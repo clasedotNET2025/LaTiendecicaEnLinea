@@ -1,7 +1,12 @@
-﻿namespace LaTiendecicaEnLinea.Catalog.Dtos.Product
+﻿namespace LaTiendecicaEnLinea.Catalog.Dtos.Product;
+
+/// <summary>
+/// Request for stock operations
+/// </summary>
+public class StockOperationRequest
 {
-    public class StockOperationRequest
-    {
-        public required int Quantity { get; set; }
-    }
+    /// <summary>
+    /// Quantity to add or remove from stock
+    /// </summary>
+    public required int Quantity { get; set; }
 }

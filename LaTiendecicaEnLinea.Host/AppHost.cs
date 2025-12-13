@@ -1,3 +1,5 @@
+using System.Net.Sockets;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 var mailServer = builder
@@ -32,22 +34,37 @@ var identity = builder.AddProject<Projects.LaTiendecicaEnLinea_Api_Identity>("la
     .WithReference(rabbit)
     .WithReference(identityDb);
 
-// Catalog Database - FIXED
+// Catalog Database
 var catalogDb = postgres.AddDatabase("catalogdb");
 
 var catalog = builder.AddProject<Projects.LaTiendecicaEnLinea_Catalog>("latiendecicaenlinea-catalog")
     .WaitFor(catalogDb)
-    .WithReference(catalogDb)  // This adds the connection string automatically
-    .WaitFor(rabbit)  // Add if Catalog uses RabbitMQ
-    .WithReference(rabbit);  // Add if Catalog uses RabbitMQ
+    .WithReference(catalogDb)
+    .WaitFor(rabbit)
+    .WithReference(rabbit);
 
-builder.AddProject<Projects.LaTiendecicaEnLinea_ApiGateway>("latiendecicaenlinea-apigateway")
+// Orders Database
+var ordersDb = postgres.AddDatabase("ordersdb");
+
+var orders = builder.AddProject<Projects.LaTiendecicaEnLinea_Orders>("latiendecicaenlinea-orders")
+    .WaitFor(ordersDb)
+    .WaitFor(catalog)
+    .WaitFor(rabbit)
+    .WithReference(ordersDb)
+    .WithReference(catalog)
+    .WithReference(rabbit);
+
+var gateway = builder.AddProject<Projects.LaTiendecicaEnLinea_ApiGateway>("latiendecicaenlinea-apigateway")
     .WithReference(redis)
     .WithReference(identity)
-    .WithReference(catalog)  // Add reference to catalog if gateway needs it
+    .WithReference(catalog)
+    .WithReference(orders)
     .WaitFor(redis)
     .WaitFor(identity)
-    .WaitFor(catalog);
+    .WaitFor(catalog)
+    .WaitFor(orders)
+    .WithHttpsEndpoint(port: 7080, targetPort: 443, name: "gateway-https")
+    .WithHttpEndpoint(port: 5080, targetPort: 80, name: "gateway-http");
 
 builder.AddProject<Projects.LaTiendecicaEnLinea_Notifications>("latiendecicaenlinea-notifications")
     .WaitFor(rabbit)
