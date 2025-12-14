@@ -1,4 +1,3 @@
-using System.Net.Sockets;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -62,9 +61,7 @@ var gateway = builder.AddProject<Projects.LaTiendecicaEnLinea_ApiGateway>("latie
     .WaitFor(redis)
     .WaitFor(identity)
     .WaitFor(catalog)
-    .WaitFor(orders)
-    .WithHttpsEndpoint(port: 7080, targetPort: 443, name: "gateway-https")
-    .WithHttpEndpoint(port: 5080, targetPort: 80, name: "gateway-http");
+    .WaitFor(orders);
 
 builder.AddProject<Projects.LaTiendecicaEnLinea_Notifications>("latiendecicaenlinea-notifications")
     .WaitFor(rabbit)

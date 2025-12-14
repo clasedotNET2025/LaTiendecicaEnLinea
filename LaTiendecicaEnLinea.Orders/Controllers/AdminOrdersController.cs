@@ -8,7 +8,7 @@ namespace LaTiendecicaEnLinea.Orders.Controllers;
 
 [ApiController]
 [Route("api/v1/admin/orders")]
-[Authorize(Roles = "Admin,Warehouse")]
+[Authorize(Roles = "Admin")]
 public class AdminOrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;

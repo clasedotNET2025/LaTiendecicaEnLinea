@@ -7,6 +7,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 {
+    /// <summary>
+    /// Controller for managing users and roles by administrators.
+    /// Provides administrative functions such as user creation, modification, deletion,
+    /// role assignment, and account lock/unlock operations.
+    /// This controller requires the user to have the Admin role.
+    /// </summary>
     [ApiVersion(1)]
     [ApiController]
     [Route("/api/v{version:apiVersion}/admin/users/[controller]")]
@@ -17,6 +23,12 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ILogger<AdminUserController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the AdminUserController class.
+        /// </summary>
+        /// <param name="userManager">The UserManager service for user operations.</param>
+        /// <param name="roleManager">The RoleManager service for role operations.</param>
+        /// <param name="logger">The logger for logging information and errors.</param>
         public AdminUserController(
             UserManager<IdentityUser> userManager,
             RoleManager<IdentityRole> roleManager,
@@ -27,6 +39,11 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Retrieves a list of all users in the system.
+        /// Returns user information including roles and lockout status.
+        /// </summary>
+        /// <returns>A list of AdminUserResponse objects containing user details.</returns>
         [HttpGet("get_all_users")]
         [ProducesResponseType<IEnumerable<AdminUserResponse>>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -60,6 +77,11 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Retrieves detailed information about a specific user by their ID.
+        /// </summary>
+        /// <param name="userId">The unique identifier of the user to retrieve.</param>
+        /// <returns>Detailed user information including roles and account status.</returns>
         [HttpGet("get_user_by_id/{userId}")]
         [ProducesResponseType<AdminUserDetailResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -100,6 +122,11 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Creates a new user account with specified roles and email confirmation status.
+        /// </summary>
+        /// <param name="request">The request containing user creation details.</param>
+        /// <returns>The created user information.</returns>
         [HttpPost("create_user")]
         [ProducesResponseType<AdminUserResponse>(StatusCodes.Status201Created)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -177,6 +204,12 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return CreatedAtAction(nameof(GetUserById), new { userId = user.Id }, response);
         }
 
+        /// <summary>
+        /// Updates an existing user's information such as email and confirmation status.
+        /// </summary>
+        /// <param name="userId">The ID of the user to update.</param>
+        /// <param name="request">The request containing updated user information.</param>
+        /// <returns>The updated user information.</returns>
         [HttpPut("update_user/{userId}")]
         [ProducesResponseType<AdminUserResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -251,6 +284,12 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Deletes a user account from the system.
+        /// Prevents deletion of admin users to maintain system security.
+        /// </summary>
+        /// <param name="userId">The ID of the user to delete.</param>
+        /// <returns>No content on successful deletion.</returns>
         [HttpDelete("delete_user/{userId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -304,6 +343,13 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Locks a user account to prevent login.
+        /// Supports both temporary and permanent lockouts.
+        /// </summary>
+        /// <param name="userId">The ID of the user to lock.</param>
+        /// <param name="request">Optional request specifying lockout duration in minutes.</param>
+        /// <returns>No content on successful lock.</returns>
         [HttpPost("lock/{userId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -364,6 +410,12 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Unlocks a previously locked user account.
+        /// Resets failed login attempts counter.
+        /// </summary>
+        /// <param name="userId">The ID of the user to unlock.</param>
+        /// <returns>No content on successful unlock.</returns>
         [HttpPost("unlock/{userId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -412,6 +464,11 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Retrieves all roles assigned to a specific user.
+        /// </summary>
+        /// <param name="userId">The ID of the user whose roles to retrieve.</param>
+        /// <returns>A list of roles assigned to the user.</returns>
         [HttpGet("get_roles/{userId}")]
         [ProducesResponseType<UserRolesResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -448,6 +505,13 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Assigns a specific role to a user.
+        /// Validates that the role exists and the user doesn't already have it.
+        /// </summary>
+        /// <param name="userId">The ID of the user to assign the role to.</param>
+        /// <param name="roleName">The name of the role to assign.</param>
+        /// <returns>Confirmation of the role assignment.</returns>
         [HttpPost("{userId}/roles/{roleName}")]
         [ProducesResponseType<RoleAssignmentResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -521,6 +585,13 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Removes a specific role from a user.
+        /// Prevents removal of the Admin role from the last admin user.
+        /// </summary>
+        /// <param name="userId">The ID of the user to remove the role from.</param>
+        /// <param name="roleName">The name of the role to remove.</param>
+        /// <returns>No content on successful removal.</returns>
         [HttpDelete("{userId}/roles/{roleName}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]

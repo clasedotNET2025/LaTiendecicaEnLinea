@@ -22,6 +22,7 @@
 
   <ItemGroup>
 	<ProjectReference Include="..\LaTiendecicaEnLinea.ServiceDefaults\LaTiendecicaEnLinea.ServiceDefaults.csproj" />
+	<ProjectReference Include="..\LaTiendecicaEnLinea.Shared\LaTiendecicaEnLinea.Shared.csproj" />
   </ItemGroup>
 
 </Project>

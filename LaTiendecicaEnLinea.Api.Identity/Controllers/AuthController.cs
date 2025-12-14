@@ -14,6 +14,10 @@ using System.Text;
 
 namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 {
+    /// <summary>
+    /// Controller handling user authentication and authorization operations.
+    /// Provides endpoints for user registration, login, and token-based authentication.
+    /// </summary>
     [ApiVersion(1)]
     [ApiController]
     [Route("/api/v{version:apiVersion}/[controller]")]
@@ -25,6 +29,14 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         private readonly ILogger<AuthController> _logger;
         private readonly IPublishEndpoint _publishEndpoint;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AuthController"/> class.
+        /// </summary>
+        /// <param name="userManager">The ASP.NET Core Identity UserManager service.</param>
+        /// <param name="signInManager">The ASP.NET Core Identity SignInManager service.</param>
+        /// <param name="configuration">Application configuration provider.</param>
+        /// <param name="logger">Logger instance for this controller.</param>
+        /// <param name="publishEndpoint">MassTransit endpoint for publishing integration events.</param>
         public AuthController(
             UserManager<IdentityUser> userManager,
             SignInManager<IdentityUser> signInManager,
@@ -39,6 +51,16 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             _publishEndpoint = publishEndpoint;
         }
 
+        /// <summary>
+        /// Registers a new user in the system.
+        /// Creates a user account, assigns the Customer role, and publishes a UserCreatedEvent for downstream processing.
+        /// </summary>
+        /// <param name="request">The registration request containing user credentials.</param>
+        /// <param name="validator">FluentValidation validator for the registration request.</param>
+        /// <param name="cancellationToken">Cancellation token for the operation.</param>
+        /// <returns>A response indicating successful registration.</returns>
+        /// <response code="201">User registered successfully.</response>
+        /// <response code="400">Registration failed due to validation errors or existing user.</response>
         [HttpPost("register")]
         [AllowAnonymous]
         [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
@@ -118,6 +140,17 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return CreatedAtAction(nameof(Login), new { }, response);
         }
 
+        /// <summary>
+        /// Authenticates a user and returns a JWT token for API access.
+        /// Validates credentials and checks for account lockout status.
+        /// </summary>
+        /// <param name="request">The login request containing user credentials.</param>
+        /// <param name="validator">FluentValidation validator for the login request.</param>
+        /// <param name="cancellationToken">Cancellation token for the operation.</param>
+        /// <returns>A JWT token and user information upon successful authentication.</returns>
+        /// <response code="200">Authentication successful, returns access token.</response>
+        /// <response code="400">Account is locked out or validation failed.</response>
+        /// <response code="401">Invalid credentials provided.</response>
         [HttpPost("login")]
         [AllowAnonymous]
         [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
@@ -189,6 +222,13 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Retrieves information about the currently authenticated user.
+        /// Requires a valid JWT token in the Authorization header.
+        /// </summary>
+        /// <returns>Detailed information about the current user including roles.</returns>
+        /// <response code="200">Returns current user information.</response>
+        /// <response code="401">User is not authenticated or token is invalid.</response>
         [HttpGet("me")]
         [Authorize]
         [ProducesResponseType<CurrentUserResponse>(StatusCodes.Status200OK)]
@@ -223,6 +263,14 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// A demonstration endpoint accessible only to users with the Admin role.
+        /// Validates that the user has administrative privileges.
+        /// </summary>
+        /// <returns>Admin-specific information and confirmation of admin status.</returns>
+        /// <response code="200">User is an admin, returns admin information.</response>
+        /// <response code="401">User is not authenticated.</response>
+        /// <response code="403">User is authenticated but not an admin.</response>
         [HttpGet("admin-only")]
         [ProducesResponseType<AdminOnlyResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -247,6 +295,13 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Generates a JWT token for an authenticated user.
+        /// Includes user claims, roles, and token expiration configuration.
+        /// </summary>
+        /// <param name="user">The IdentityUser for whom to generate the token.</param>
+        /// <param name="roles">The roles assigned to the user.</param>
+        /// <returns>A signed JWT token as a string.</returns>
         private string GenerateJwtToken(IdentityUser user, IList<string> roles)
         {
             var jwtSecret = _configuration["Jwt:Secret"]!;
