@@ -1,5 +1,5 @@
 ﻿using FluentValidation;
-using LaTiendecicaEnLinea.Api.Identity.Dtos.Roles;
+using LaTiendecicaEnLinea.Api.Identity.Dtos.Roles.Requests;
 
 namespace LaTiendecicaEnLinea.Api.Identity.Validations.Roles
 {

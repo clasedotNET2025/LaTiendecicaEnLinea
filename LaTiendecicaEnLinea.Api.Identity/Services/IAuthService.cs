@@ -1,4 +1,4 @@
-﻿using LaTiendecicaEnLinea.Api.Identity.Dtos.Auth;
+﻿using LaTiendecicaEnLinea.Api.Identity.Dtos.Auth.Responses;
 
 namespace LaTiendecicaEnLinea.Api.Identity.Services
 {

@@ -1,5 +1,6 @@
 ﻿using LaTiendecicaEnLinea.Catalog.Data;
-using LaTiendecicaEnLinea.Catalog.Dtos.Category;
+using LaTiendecicaEnLinea.Catalog.Dtos.Category.Requests;
+using LaTiendecicaEnLinea.Catalog.Dtos.Category.Responses;
 using LaTiendecicaEnLinea.Catalog.Entities;
 using LaTiendecicaEnLinea.Shared.Common;
 using Microsoft.EntityFrameworkCore;

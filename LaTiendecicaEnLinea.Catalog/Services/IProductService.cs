@@ -1,4 +1,5 @@
-﻿using LaTiendecicaEnLinea.Catalog.Dtos.Product;
+﻿using LaTiendecicaEnLinea.Catalog.Dtos.Product.Requests;
+using LaTiendecicaEnLinea.Catalog.Dtos.Product.Responses;
 using LaTiendecicaEnLinea.Shared.Common;
 
 namespace LaTiendecicaEnLinea.Catalog.Services;

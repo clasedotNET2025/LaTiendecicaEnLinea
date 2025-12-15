@@ -7,18 +7,13 @@ using LaTiendecicaEnLinea.Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
 builder.Configuration.AddUserSecrets(typeof(Program).Assembly, true);
 
 // Debug: Verify JWT configuration is loaded
-var jwtSecret = builder.Configuration["Jwt:Secret"];
-var jwtIssuer = builder.Configuration["Jwt:Issuer"];
-var jwtAudience = builder.Configuration["Jwt:Audience"];
-
 Console.WriteLine("=== ORDERS JWT CONFIGURATION ===");
-Console.WriteLine($"Secret configured: {!string.IsNullOrEmpty(jwtSecret)}");
-Console.WriteLine($"Issuer: {jwtIssuer}");
-Console.WriteLine($"Audience: {jwtAudience}");
+Console.WriteLine($"Secret: {!string.IsNullOrEmpty(builder.Configuration["Jwt:Secret"])}");
+Console.WriteLine($"Issuer: {builder.Configuration["Jwt:Issuer"]}");
+Console.WriteLine($"Audience: {builder.Configuration["Jwt:Audience"]}");
 Console.WriteLine("==================================");
 
 builder.Services.AddControllers();
@@ -33,7 +28,7 @@ builder.Services.AddOpenApi("v1", options =>
     options.AddJwtBearerSecurity();
 });
 
-// API versioning configuration
+// API versioning
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1);
@@ -47,40 +42,34 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-// Database configuration
+// Database
 builder.AddNpgsqlDbContext<OrdersDbContext>("ordersdb");
 
-// Business services registration
+// Services
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-// JWT Authentication using shared extension
+// JWT Authentication - ¡IMPORTANTE!
 builder.Services.AddJwtAuthentication(builder.Configuration);
-
-// Authorization policies for role-based access control
-builder.Services.AddAuthorization(options =>
-{
-    // Requires Admin role
-    options.AddPolicy("AdminOnly", policy =>
-        policy.RequireRole("Admin"));
-
-    // Requires Customer role  
-    options.AddPolicy("CustomerOnly", policy =>
-        policy.RequireRole("Customer"));
-
-    // Requires any authenticated user
-    options.AddPolicy("AuthenticatedUser", policy =>
-        policy.RequireAuthenticatedUser());
-});
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
+    // PRIMERO: Authentication y Authorization
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    // LUEGO: Swagger
     app.MapOpenApi();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "Orders API V1");
+
+        // Configura Swagger UI para usar JWT
+        options.OAuthClientId("swagger-ui");
+        options.OAuthAppName("Orders API - Swagger UI");
+        options.OAuthUsePkce();
     });
 
     // Apply database migrations
@@ -88,12 +77,14 @@ if (app.Environment.IsDevelopment())
     var context = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
     await context.Database.MigrateAsync();
 }
+else
+{
+    // En producción también necesitas esto
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
 
 app.UseHttpsRedirection();
-
-// Authentication must come before Authorization
-app.UseAuthentication();
-app.UseAuthorization();
 
 app.MapControllers();
 

@@ -1,7 +1,8 @@
 ﻿using Asp.Versioning;
 using FluentValidation;
 using LaTiendecicaEnLinea.Api.Identity.Data;
-using LaTiendecicaEnLinea.Api.Identity.Dtos.Roles;
+using LaTiendecicaEnLinea.Api.Identity.Dtos.Roles.Requests;
+using LaTiendecicaEnLinea.Api.Identity.Dtos.Roles.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;

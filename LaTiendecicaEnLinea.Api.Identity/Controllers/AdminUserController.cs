@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using LaTiendecicaEnLinea.Api.Identity.Data;
-using LaTiendecicaEnLinea.Api.Identity.Dtos.Admin;
+using LaTiendecicaEnLinea.Api.Identity.Dtos.Admin.Requests;
+using LaTiendecicaEnLinea.Api.Identity.Dtos.Admin.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;

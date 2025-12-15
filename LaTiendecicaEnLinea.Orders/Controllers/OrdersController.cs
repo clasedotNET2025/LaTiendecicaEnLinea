@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using LaTiendecicaEnLinea.Orders.DTOs.Requests;
+﻿using LaTiendecicaEnLinea.Orders.DTOs.Requests;
 using LaTiendecicaEnLinea.Orders.DTOs.Responses;
 using LaTiendecicaEnLinea.Orders.Services;
 using LaTiendecicaEnLinea.Shared.Common;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace LaTiendecicaEnLinea.Orders.Controllers;
 
@@ -122,7 +123,22 @@ public class OrdersController : ControllerBase
 
     private Guid? GetUserId()
     {
-        var userIdClaim = User.FindFirst("sub")?.Value ?? User.FindFirst("userId")?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
+        // Identity usa ClaimTypes.NameIdentifier
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                       ?? User.FindFirst("sub")?.Value
+                       ?? User.FindFirst("userId")?.Value;
+
+        if (Guid.TryParse(userIdClaim, out var userId))
+        {
+            return userId;
+        }
+
+        // Si es un string simple de Identity (no GUID)
+        // Identity devuelve string, no GUID
+        // Podrías guardarlo como string en la BD
+        // O si realmente necesitas GUID:
+        return string.IsNullOrEmpty(userIdClaim)
+            ? null
+            : new Guid(userIdClaim);
     }
 }
