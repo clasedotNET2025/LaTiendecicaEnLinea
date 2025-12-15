@@ -9,6 +9,10 @@
   <ItemGroup>
     <PackageReference Include="MassTransit.RabbitMQ" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+	<PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+	<PackageReference Include="Microsoft.OpenApi" />
+	<PackageReference Include="Asp.Versioning.Mvc" />
+	  
   </ItemGroup>
 
 </Project>

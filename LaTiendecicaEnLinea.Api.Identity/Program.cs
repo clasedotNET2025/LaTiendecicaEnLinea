@@ -134,8 +134,10 @@ if (app.Environment.IsDevelopment())
 
     // CREAR USUARIO ADMIN POR DEFECTO
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
-    var adminEmail = "admin@admin.com";
-    var adminPassword = "Admin.1234";
+    var adminEmail = builder.Configuration["AdminCredentials:Email"]
+    ?? throw new InvalidOperationException("Admin email not configured");
+    var adminPassword = builder.Configuration["AdminCredentials:Password"]
+        ?? throw new InvalidOperationException("Admin password not configured");
 
     var adminUser = await userManager.FindByEmailAsync(adminEmail);
     if (adminUser == null)
