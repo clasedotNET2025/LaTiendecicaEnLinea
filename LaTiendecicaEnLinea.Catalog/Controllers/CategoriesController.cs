@@ -29,7 +29,7 @@ public class CategoriesController : ControllerBase
     /// </summary>
     /// <returns>List of all categories</returns>
     [HttpGet]
-    [AllowAnonymous] // Public endpoint - no authentication required
+    [AllowAnonymous]
     [ProducesResponseType(typeof(IEnumerable<CategoryResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CategoryResponse>>> GetAll()
     {
@@ -43,7 +43,7 @@ public class CategoriesController : ControllerBase
     /// <param name="id">Category identifier</param>
     /// <returns>The requested category</returns>
     [HttpGet("{id:int}")]
-    [AllowAnonymous] // Public endpoint - no authentication required
+    [AllowAnonymous]
     [ProducesResponseType(typeof(CategoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CategoryResponse>> GetById(int id)

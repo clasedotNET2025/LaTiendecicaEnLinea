@@ -13,7 +13,7 @@ public class OrderItem
     public Order? Order { get; set; }
 
     [Required]
-    public Guid ProductId { get; set; }
+    public int ProductId { get; set; }
 
     [Required, MaxLength(200)]
     public string ProductName { get; set; } = string.Empty;

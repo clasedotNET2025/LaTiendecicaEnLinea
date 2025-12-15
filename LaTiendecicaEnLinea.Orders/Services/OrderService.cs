@@ -1,121 +1,159 @@
 ﻿using System.Text.Json;
-using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using LaTiendecicaEnLinea.Orders.Data;
 using LaTiendecicaEnLinea.Orders.Entities;
 using LaTiendecicaEnLinea.Orders.DTOs.Requests;
 using LaTiendecicaEnLinea.Orders.DTOs.Responses;
+using LaTiendecicaEnLinea.Shared.Common;
 
 namespace LaTiendecicaEnLinea.Orders.Services;
 
+/// <summary>
+/// Service for order operations
+/// </summary>
 public class OrderService : IOrderService
 {
     private readonly OrdersDbContext _context;
     private readonly ILogger<OrderService> _logger;
     private readonly HttpClient _httpClient;
-    private readonly IPublishEndpoint _publishEndpoint;
 
+    /// <summary>
+    /// Initializes a new instance of the OrderService class
+    /// </summary>
+    /// <param name="context">Database context</param>
+    /// <param name="logger">Logger instance</param>
+    /// <param name="httpClientFactory">HTTP client factory</param>
     public OrderService(
         OrdersDbContext context,
-        ILogger<OrderService> logger,
-        IHttpClientFactory httpClientFactory,
-        IPublishEndpoint publishEndpoint)
+        ILogger<OrderService> logger)
     {
         _context = context;
         _logger = logger;
-        _httpClient = httpClientFactory.CreateClient("catalog");
-        _publishEndpoint = publishEndpoint;
     }
 
-    public async Task<OrderResponse> CreateOrderAsync(Guid userId, CreateOrderRequest request)
+    /// <summary>
+    /// Creates a new order
+    /// </summary>
+    /// <param name="userId">User identifier</param>
+    /// <param name="request">Order creation data</param>
+    /// <returns>Service result with created order</returns>
+    /// <summary>
+    /// Creates a new order
+    /// </summary>
+    /// <param name="userId">User identifier</param>
+    /// <param name="request">Order creation data</param>
+    /// <returns>Service result with created order</returns>
+    public async Task<ServiceResult<OrderResponse>> CreateOrderAsync(Guid userId, CreateOrderRequest request)
     {
-        var orderNumber = $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N").Substring(0, 6)}";
-
-        var order = new Order
+        try
         {
-            Id = Guid.NewGuid(),
-            OrderNumber = orderNumber,
-            UserId = userId,
-            Status = OrderStatus.Pending,
-            CustomerNotes = request.Notes,
-            OrderDate = DateTime.UtcNow,
-            OrderItems = new List<OrderItem>()
-        };
+            var orderNumber = $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N").Substring(0, 6)}";
 
-        decimal totalAmount = 0;
-
-        foreach (var itemRequest in request.Items)
-        {
-            var productResponse = await _httpClient.GetAsync($"api/products/{itemRequest.ProductId}");
-            if (!productResponse.IsSuccessStatusCode)
-                throw new Exception($"Producto {itemRequest.ProductId} no encontrado");
-
-            var productJson = await productResponse.Content.ReadAsStringAsync();
-            var productData = JsonSerializer.Deserialize<ProductData>(productJson, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-
-            var orderItem = new OrderItem
+            var order = new Order
             {
                 Id = Guid.NewGuid(),
-                ProductId = itemRequest.ProductId,
-                ProductName = productData?.Name ?? "Producto",
-                UnitPrice = productData?.Price ?? 0,
-                Quantity = itemRequest.Quantity,
-                Subtotal = (productData?.Price ?? 0) * itemRequest.Quantity,
-                CreatedAt = DateTime.UtcNow
+                OrderNumber = orderNumber,
+                UserId = userId,
+                Status = OrderStatus.Pending,
+                CustomerNotes = request.Notes,
+                OrderDate = DateTime.UtcNow,
+                OrderItems = new List<OrderItem>()
             };
 
-            order.OrderItems.Add(orderItem);
-            totalAmount += orderItem.Subtotal;
+            decimal totalAmount = 0;
+
+            foreach (var itemRequest in request.Items)
+            {
+                // EN LUGAR de llamar a Catalog API, asume que el producto existe
+                // O mejor, verifica en tu propia BD si Orders tiene productos
+                var orderItem = new OrderItem
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = itemRequest.ProductId,
+                    ProductName = $"Producto {itemRequest.ProductId}", // Nombre temporal
+                    UnitPrice = 10.0m, // Precio temporal
+                    Quantity = itemRequest.Quantity,
+                    Subtotal = 10.0m * itemRequest.Quantity,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                order.OrderItems.Add(orderItem);
+                totalAmount += orderItem.Subtotal;
+            }
+
+            order.TotalAmount = totalAmount;
+
+            await _context.Orders.AddAsync(order);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Order created: {OrderNumber} by user {UserId}", order.OrderNumber, userId);
+
+            var response = MapToOrderResponse(order);
+            return ServiceResult<OrderResponse>.Success(response, "Order created successfully");
         }
-
-        order.TotalAmount = totalAmount;
-
-        await _context.Orders.AddAsync(order);
-        await _context.SaveChangesAsync();
-
-        await _publishEndpoint.Publish(new OrderCreatedEvent
+        catch (Exception ex)
         {
-            OrderId = order.Id,
-            OrderNumber = order.OrderNumber,
-            UserId = order.UserId,
-            TotalAmount = order.TotalAmount,
-            CreatedAt = DateTime.UtcNow
-        });
-
-        _logger.LogInformation("Pedido creado: {OrderNumber}", order.OrderNumber);
-
-        return MapToOrderResponse(order);
+            _logger.LogError(ex, "Error creating order for user {UserId}", userId);
+            return ServiceResult<OrderResponse>.Failure($"Error creating order: {ex.Message}");
+        }
     }
 
-    public async Task<OrderResponse?> GetOrderAsync(Guid orderId, Guid userId)
+    /// <summary>
+    /// Retrieves an order by identifier for a specific user
+    /// </summary>
+    /// <param name="orderId">Order identifier</param>
+    /// <param name="userId">User identifier</param>
+    /// <returns>Service result with order details</returns>
+    public async Task<ServiceResult<OrderResponse>> GetOrderAsync(Guid orderId, Guid userId)
     {
         var order = await _context.Orders
             .Include(o => o.OrderItems)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
 
-        return order != null ? MapToOrderResponse(order) : null;
+        if (order == null)
+        {
+            return ServiceResult<OrderResponse>.Failure("Order not found");
+        }
+
+        var response = MapToOrderResponse(order);
+        return ServiceResult<OrderResponse>.Success(response);
     }
 
-    public async Task<List<OrderSummaryResponse>> GetUserOrdersAsync(Guid userId)
+    /// <summary>
+    /// Retrieves all orders for a specific user
+    /// </summary>
+    /// <param name="userId">User identifier</param>
+    /// <returns>Service result with list of user orders</returns>
+    public async Task<ServiceResult<IEnumerable<OrderSummaryResponse>>> GetUserOrdersAsync(Guid userId)
     {
         var orders = await _context.Orders
             .Where(o => o.UserId == userId)
             .OrderByDescending(o => o.OrderDate)
             .ToListAsync();
 
-        return orders.Select(MapToOrderSummaryResponse).ToList();
+        var response = orders.Select(MapToOrderSummaryResponse).ToList();
+        return ServiceResult<IEnumerable<OrderSummaryResponse>>.Success(response);
     }
 
-    public async Task<OrderResponse> UpdateOrderStatusAsync(Guid orderId, string newStatus, string? adminNotes)
+    /// <summary>
+    /// Updates order status (admin only)
+    /// </summary>
+    /// <param name="orderId">Order identifier</param>
+    /// <param name="newStatus">New order status</param>
+    /// <param name="adminNotes">Admin notes</param>
+    /// <returns>Service result with updated order</returns>
+    public async Task<ServiceResult<OrderResponse>> UpdateOrderStatusAsync(Guid orderId, string newStatus, string? adminNotes)
     {
         var order = await _context.Orders.FindAsync(orderId);
-        if (order == null) throw new KeyNotFoundException("Pedido no encontrado");
+        if (order == null)
+        {
+            return ServiceResult<OrderResponse>.Failure("Order not found");
+        }
 
         if (!Enum.TryParse<OrderStatus>(newStatus, out var status))
-            throw new ArgumentException("Estado no válido");
+        {
+            return ServiceResult<OrderResponse>.Failure("Invalid order status");
+        }
 
         var oldStatus = order.Status.ToString();
         order.Status = status;
@@ -124,18 +162,19 @@ public class OrderService : IOrderService
 
         await _context.SaveChangesAsync();
 
-        await _publishEndpoint.Publish(new OrderStatusChangedEvent
-        {
-            OrderId = order.Id,
-            OldStatus = oldStatus,
-            NewStatus = newStatus,
-            ChangedAt = DateTime.UtcNow
-        });
+        _logger.LogInformation("Order status updated: {OrderId} from {OldStatus} to {NewStatus}",
+            orderId, oldStatus, newStatus);
 
-        return MapToOrderResponse(order);
+        var response = MapToOrderResponse(order);
+        return ServiceResult<OrderResponse>.Success(response, "Order status updated successfully");
     }
 
-    public async Task<List<OrderResponse>> GetAllOrdersAsync(string? statusFilter)
+    /// <summary>
+    /// Retrieves all orders with optional status filtering (admin only)
+    /// </summary>
+    /// <param name="statusFilter">Optional status filter</param>
+    /// <returns>Service result with list of all orders</returns>
+    public async Task<ServiceResult<IEnumerable<OrderResponse>>> GetAllOrdersAsync(string? statusFilter)
     {
         var query = _context.Orders.Include(o => o.OrderItems).AsQueryable();
 
@@ -145,15 +184,28 @@ public class OrderService : IOrderService
         }
 
         var orders = await query.OrderByDescending(o => o.OrderDate).ToListAsync();
-        return orders.Select(MapToOrderResponse).ToList();
+        var response = orders.Select(MapToOrderResponse).ToList();
+        return ServiceResult<IEnumerable<OrderResponse>>.Success(response);
     }
 
-    public async Task<bool> CancelOrderAsync(Guid orderId, Guid userId)
+    /// <summary>
+    /// Cancels an order
+    /// </summary>
+    /// <param name="orderId">Order identifier</param>
+    /// <param name="userId">User identifier</param>
+    /// <returns>Service result indicating operation status</returns>
+    public async Task<ServiceResult> CancelOrderAsync(Guid orderId, Guid userId)
     {
         var order = await _context.Orders.FindAsync(orderId);
-        if (order == null || order.UserId != userId) return false;
+        if (order == null || order.UserId != userId)
+        {
+            return ServiceResult.Failure("Order not found");
+        }
 
-        if (order.Status != OrderStatus.Pending) return false;
+        if (order.Status != OrderStatus.Pending)
+        {
+            return ServiceResult.Failure("Only pending orders can be cancelled");
+        }
 
         var oldStatus = order.Status.ToString();
         order.Status = OrderStatus.Cancelled;
@@ -161,15 +213,8 @@ public class OrderService : IOrderService
 
         await _context.SaveChangesAsync();
 
-        await _publishEndpoint.Publish(new OrderStatusChangedEvent
-        {
-            OrderId = order.Id,
-            OldStatus = oldStatus,
-            NewStatus = "Cancelled",
-            ChangedAt = DateTime.UtcNow
-        });
-
-        return true;
+        _logger.LogInformation("Order cancelled: {OrderId} by user {UserId}", orderId, userId);
+        return ServiceResult.Success("Order cancelled successfully");
     }
 
     private OrderResponse MapToOrderResponse(Order order)
@@ -214,22 +259,4 @@ public class OrderService : IOrderService
         public string Name { get; set; } = string.Empty;
         public decimal Price { get; set; }
     }
-}
-
-// Eventos para MassTransit
-public class OrderCreatedEvent
-{
-    public Guid OrderId { get; set; }
-    public string OrderNumber { get; set; } = string.Empty;
-    public Guid UserId { get; set; }
-    public decimal TotalAmount { get; set; }
-    public DateTime CreatedAt { get; set; }
-}
-
-public class OrderStatusChangedEvent
-{
-    public Guid OrderId { get; set; }
-    public string OldStatus { get; set; } = string.Empty;
-    public string NewStatus { get; set; } = string.Empty;
-    public DateTime ChangedAt { get; set; }
 }

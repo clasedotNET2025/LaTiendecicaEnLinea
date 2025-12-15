@@ -1,36 +1,39 @@
-using System.Text.Json.Serialization;
 using Asp.Versioning;
 using Microsoft.EntityFrameworkCore;
 using LaTiendecicaEnLinea.Orders.Data;
 using LaTiendecicaEnLinea.Orders.Services;
-using MassTransit;
-using LaTiendecicaEnLinea.Shared.Extensions;
 using LaTiendecicaEnLinea.Identity.Extensions;
+using LaTiendecicaEnLinea.Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
+// Add services to the container
+builder.Configuration.AddUserSecrets(typeof(Program).Assembly, true);
 
-builder.AddNpgsqlDbContext<OrdersDbContext>("ordersdb");
+// Debug: Verify JWT configuration is loaded
+var jwtSecret = builder.Configuration["Jwt:Secret"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-// Add MassTransit
-builder.Services.AddMassTransit(x =>
+Console.WriteLine("=== ORDERS JWT CONFIGURATION ===");
+Console.WriteLine($"Secret configured: {!string.IsNullOrEmpty(jwtSecret)}");
+Console.WriteLine($"Issuer: {jwtIssuer}");
+Console.WriteLine($"Audience: {jwtAudience}");
+Console.WriteLine("==================================");
+
+builder.Services.AddControllers();
+
+// Swagger with JWT authentication support
+builder.Services.AddOpenApi("v1", options =>
 {
-    x.UsingRabbitMq((context, cfg) =>
-    {
-        var configuration = context.GetRequiredService<IConfiguration>();
-        var connectionString = configuration.GetConnectionString("messaging");
-
-        if (!string.IsNullOrEmpty(connectionString))
-        {
-            cfg.Host(new Uri(connectionString));
-        }
-
-        cfg.ConfigureEndpoints(context);
-    });
+    options.ConfigureDocumentInfo(
+        "La Tiendecica - Orders API V1",
+        "v1",
+        "Orders API for managing customer orders");
+    options.AddJwtBearerSecurity();
 });
 
-// Add API Versioning
+// API versioning configuration
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1);
@@ -44,64 +47,54 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-// Add Swagger with JWT support
-builder.Services.AddOpenApi("v1", options =>
-{
-    options.ConfigureDocumentInfo(
-        "La Tiendecica - Orders API V1",
-        "v1",
-        "Orders API for managing customer orders");
-    options.AddJwtBearerSecurity();
-});
+// Database configuration
+builder.AddNpgsqlDbContext<OrdersDbContext>("ordersdb");
 
-builder.Services.AddHttpClient("catalog", client =>
-{
-    client.BaseAddress = new Uri("https+http://latiendecicaenlinea-catalog");
-});
-
-builder.Services.AddJwtAuthentication(builder.Configuration);
-
+// Business services registration
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+// JWT Authentication using shared extension
+builder.Services.AddJwtAuthentication(builder.Configuration);
 
-// Add authorization policies
+// Authorization policies for role-based access control
 builder.Services.AddAuthorization(options =>
 {
+    // Requires Admin role
     options.AddPolicy("AdminOnly", policy =>
         policy.RequireRole("Admin"));
 
+    // Requires Customer role  
     options.AddPolicy("CustomerOnly", policy =>
         policy.RequireRole("Customer"));
 
+    // Requires any authenticated user
     options.AddPolicy("AuthenticatedUser", policy =>
         policy.RequireAuthenticatedUser());
 });
 
 var app = builder.Build();
 
+// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
-    // Add Swagger UI
     app.MapOpenApi();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "Orders API V1");
     });
 
+    // Apply database migrations
     using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
-    await db.Database.MigrateAsync();
+    var context = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+    await context.Database.MigrateAsync();
 }
 
-app.MapDefaultEndpoints();
 app.UseHttpsRedirection();
+
+// Authentication must come before Authorization
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 await app.RunAsync();

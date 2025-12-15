@@ -14,7 +14,7 @@ public class CreateOrderRequest
 public class OrderItemRequest
 {
     [Required]
-    public Guid ProductId { get; set; }
+    public int ProductId { get; set; }
 
     [Required, Range(1, 100)]
     public int Quantity { get; set; }
