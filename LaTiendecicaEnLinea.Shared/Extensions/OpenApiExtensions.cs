@@ -2,26 +2,36 @@
 using Microsoft.OpenApi;
 using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace LaTiendecicaEnLinea.Identity.Extensions;
 
+/// <summary>
+/// Provides extension methods for configuring OpenAPI documentation in the application.
+/// These extensions handle JWT Bearer authentication, document information, and API version filtering.
+/// </summary>
 public static class OpenApiExtensions
 {
     /// <summary>
-    /// Adds JWT Bearer authentication configuration to OpenAPI documents
+    /// Configures JWT Bearer authentication for OpenAPI documents.
+    /// Adds a Bearer security scheme and automatically applies security requirements to protected endpoints.
     /// </summary>
+    /// <param name="options">The OpenAPI options to configure.</param>
     public static void AddJwtBearerSecurity(this OpenApiOptions options)
     {
-        // Add JWT Bearer security scheme
         options.AddDocumentTransformer(new JwtBearerSecuritySchemeDocumentTransformer());
-
-        // Automatically add security requirements to protected endpoints
         options.AddOperationTransformer(new JwtBearerSecurityRequirementOperationTransformer());
     }
 
     /// <summary>
-    /// Configures OpenAPI document information
+    /// Sets the basic information for an OpenAPI document.
     /// </summary>
+    /// <param name="options">The OpenAPI options to configure.</param>
+    /// <param name="title">The title of the API.</param>
+    /// <param name="version">The version of the API document.</param>
+    /// <param name="description">A description of the API.</param>
     public static void ConfigureDocumentInfo(
         this OpenApiOptions options,
         string title,
@@ -32,27 +42,26 @@ public static class OpenApiExtensions
     }
 
     /// <summary>
-    /// Filters OpenAPI document to include only endpoints matching the specified API version
+    /// Filters OpenAPI operations to include only those matching a specific API version.
+    /// Endpoints without version metadata are excluded from versioned documents.
     /// </summary>
+    /// <param name="options">The OpenAPI options to configure.</param>
+    /// <param name="apiVersion">The API version to filter by (e.g., "v1").</param>
     public static void FilterByApiVersion(this OpenApiOptions options, string apiVersion)
     {
         options.AddOperationTransformer((operation, context, cancellationToken) =>
         {
-            // Get the API version from endpoint metadata
             var apiVersionMetadata = context.Description.ActionDescriptor.EndpointMetadata
                 .OfType<ApiVersionAttribute>()
                 .FirstOrDefault();
 
-            // If endpoint has no version metadata, exclude it from versioned documents
             if (apiVersionMetadata == null)
             {
                 return Task.FromResult<OpenApiOperation?>(null);
             }
 
-            // Check if any of the endpoint's versions match the document version
             var endpointVersions = apiVersionMetadata.Versions;
             var documentVersion = apiVersion.TrimStart('v');
-
             var matches = endpointVersions.Any(v => v.ToString() == documentVersion);
 
             return Task.FromResult(matches ? operation : null);
@@ -60,11 +69,21 @@ public static class OpenApiExtensions
     }
 }
 
+/// <summary>
+/// Transformer that adds a JWT Bearer security scheme to OpenAPI documents.
+/// Ensures the security scheme is properly registered in the document's components.
+/// </summary>
 internal sealed class JwtBearerSecuritySchemeDocumentTransformer : IOpenApiDocumentTransformer
 {
+    /// <summary>
+    /// Adds a Bearer security scheme to the OpenAPI document.
+    /// </summary>
+    /// <param name="document">The OpenAPI document to transform.</param>
+    /// <param name="context">The transformation context.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context, CancellationToken cancellationToken)
     {
-        // Ensure components and its dictionaries are initialized in v2
         document.RegisterComponents();
 
         var scheme = new OpenApiSecurityScheme
@@ -75,15 +94,25 @@ internal sealed class JwtBearerSecuritySchemeDocumentTransformer : IOpenApiDocum
             Description = "Enter your JWT token in the format: your-token-here"
         };
 
-        // Add or replace the Bearer security scheme via helper that initializes dictionaries
         document.AddComponent("Bearer", scheme);
 
         return Task.CompletedTask;
     }
 }
 
+/// <summary>
+/// Transformer that automatically adds JWT Bearer security requirements to protected endpoints.
+/// Analyzes endpoint metadata to determine if authorization is required and applies the security requirement.
+/// </summary>
 internal sealed class JwtBearerSecurityRequirementOperationTransformer : IOpenApiOperationTransformer
 {
+    /// <summary>
+    /// Adds security requirements to operations that require authorization.
+    /// </summary>
+    /// <param name="operation">The OpenAPI operation to transform.</param>
+    /// <param name="context">The transformation context containing endpoint metadata.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
     {
         var metadata = context.Description.ActionDescriptor.EndpointMetadata;
@@ -94,7 +123,6 @@ internal sealed class JwtBearerSecurityRequirementOperationTransformer : IOpenAp
         {
             operation.Security ??= new List<OpenApiSecurityRequirement>();
 
-            // Reference the previously added Bearer scheme by name in this document
             var bearerRef = new OpenApiSecuritySchemeReference("Bearer", context.Document, null);
 
             operation.Security.Add(new OpenApiSecurityRequirement
@@ -107,12 +135,21 @@ internal sealed class JwtBearerSecurityRequirementOperationTransformer : IOpenAp
     }
 }
 
+/// <summary>
+/// Transformer that sets the basic information (title, version, description) for an OpenAPI document.
+/// </summary>
 internal sealed class DocumentInfoTransformer : IOpenApiDocumentTransformer
 {
     private readonly string _title;
     private readonly string _version;
     private readonly string _description;
 
+    /// <summary>
+    /// Initializes a new instance of the DocumentInfoTransformer class.
+    /// </summary>
+    /// <param name="title">The title of the API.</param>
+    /// <param name="version">The version of the API document.</param>
+    /// <param name="description">A description of the API.</param>
     public DocumentInfoTransformer(string title, string version, string description)
     {
         _title = title;
@@ -120,9 +157,15 @@ internal sealed class DocumentInfoTransformer : IOpenApiDocumentTransformer
         _description = description;
     }
 
+    /// <summary>
+    /// Applies the document information to the OpenAPI document.
+    /// </summary>
+    /// <param name="document">The OpenAPI document to transform.</param>
+    /// <param name="context">The transformation context.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context, CancellationToken cancellationToken)
     {
-        // Ensure Info exists in v2
         document.Info ??= new OpenApiInfo();
 
         document.Info.Title = _title;

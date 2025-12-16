@@ -22,8 +22,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Service
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Catalog", "LaTiendecicaEnLinea.Catalog\LaTiendecicaEnLinea.Catalog.csproj", "{D8A4FAC8-649C-549C-7C30-6E42784ABC2C}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NewFolder1", "NewFolder1", "{74265E74-E657-4D87-B554-2453CBA84387}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaTiendecicaEnLinea.Orders", "LaTiendecicaEnLinea.Orders\LaTiendecicaEnLinea.Orders.csproj", "{89A54B54-E279-5F35-910A-FFA5A0C50E38}"
 EndProject
 Global
@@ -67,9 +65,6 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{74265E74-E657-4D87-B554-2453CBA84387} = {D107F4C8-89CC-BEA8-D3D7-CA6B7733353D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {82FBCA4D-E631-4666-AB95-AA9D6AD09975}

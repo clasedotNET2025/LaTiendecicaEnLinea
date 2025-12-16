@@ -16,9 +16,19 @@ using System.Text;
 namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 {
     /// <summary>
-    /// Controller handling user authentication and authorization operations.
-    /// Provides endpoints for user registration, login, and token-based authentication.
+    /// Controller for managing user authentication, authorization, and identity operations.
+    /// Provides endpoints for user registration, login, token generation, and user information retrieval.
+    /// Implements RESTful API design principles with proper HTTP methods and status codes.
     /// </summary>
+    /// <remarks>
+    /// This controller handles the complete authentication flow including:
+    /// <list type="bullet">
+    /// <item><description>User registration with role assignment</description></item>
+    /// <item><description>User login with JWT token generation</description></item>
+    /// <item><description>Current user information retrieval</description></item>
+    /// <item><description>Role-based access control demonstration</description></item>
+    /// </list>
+    /// </remarks>
     [ApiVersion(1)]
     [ApiController]
     [Route("/api/v{version:apiVersion}/[controller]")]
@@ -31,13 +41,14 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         private readonly IPublishEndpoint _publishEndpoint;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AuthController"/> class.
+        /// Constructs a new AuthController with the required dependencies.
         /// </summary>
-        /// <param name="userManager">The ASP.NET Core Identity UserManager service.</param>
-        /// <param name="signInManager">The ASP.NET Core Identity SignInManager service.</param>
-        /// <param name="configuration">Application configuration provider.</param>
-        /// <param name="logger">Logger instance for this controller.</param>
+        /// <param name="userManager">ASP.NET Core Identity UserManager for user operations.</param>
+        /// <param name="signInManager">ASP.NET Core Identity SignInManager for authentication operations.</param>
+        /// <param name="configuration">Application configuration settings provider.</param>
+        /// <param name="logger">Logger instance for recording controller events.</param>
         /// <param name="publishEndpoint">MassTransit endpoint for publishing integration events.</param>
+        /// <exception cref="ArgumentNullException">Thrown when any required dependency is null.</exception>
         public AuthController(
             UserManager<IdentityUser> userManager,
             SignInManager<IdentityUser> signInManager,
@@ -45,32 +56,37 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             ILogger<AuthController> logger,
             IPublishEndpoint publishEndpoint)
         {
-            _userManager = userManager;
-            _signInManager = signInManager;
-            _configuration = configuration;
-            _logger = logger;
-            _publishEndpoint = publishEndpoint;
+            _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
+            _signInManager = signInManager ?? throw new ArgumentNullException(nameof(signInManager));
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
         }
 
         /// <summary>
         /// Registers a new user in the system.
-        /// Creates a user account, assigns the Customer role, and publishes a UserCreatedEvent for downstream processing.
         /// </summary>
-        /// <param name="request">The registration request containing user credentials.</param>
-        /// <param name="validator">FluentValidation validator for the registration request.</param>
-        /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <returns>A response indicating successful registration.</returns>
-        /// <response code="201">User registered successfully.</response>
-        /// <response code="400">Registration failed due to validation errors or existing user.</response>
+        /// <param name="request">Registration data containing user credentials.</param>
+        /// <param name="validator">FluentValidation validator for request validation.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+        /// <returns>Created response with user information.</returns>
+        /// <response code="201">User successfully registered. Returns user details.</response>
+        /// <response code="400">Bad request due to validation errors or existing user.</response>
+        /// <response code="500">Internal server error during user creation.</response>
         [HttpPost("register")]
         [AllowAnonymous]
-        [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
-        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        [Consumes("application/json")]
+        [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<RegisterResponse>> Register(
             [FromBody] RegisterRequest request,
             [FromServices] IValidator<RegisterRequest> validator,
             CancellationToken cancellationToken = default)
         {
+            _logger.LogDebug("Starting registration process for email: {Email}", request.Email);
+
             var validationResult = await validator.ValidateAsync(request, cancellationToken);
             if (!validationResult.IsValid)
             {
@@ -78,7 +94,9 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 _logger.LogWarning("Registration validation failed for email: {Email}", request.Email);
                 return ValidationProblem(new ValidationProblemDetails(errors)
                 {
-                    Title = "Validation failed"
+                    Title = "Validation failed",
+                    Detail = "One or more validation errors occurred.",
+                    Status = StatusCodes.Status400BadRequest
                 });
             }
 
@@ -88,7 +106,7 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 _logger.LogWarning("Registration attempt with existing email: {Email}", request.Email);
                 return Problem(
                     title: "User already exists",
-                    detail: "User with this email already exists",
+                    detail: $"A user with email '{request.Email}' already exists.",
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
@@ -123,11 +141,11 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                     email: user.Email
                 ), cancellationToken);
 
-                _logger.LogInformation("UserCreatedEvent published for user: {UserId}", user.Id);
+                _logger.LogDebug("UserCreatedEvent published for user: {UserId}", user.Id);
             }
             catch (Exception ex)
             {
-                // Log del error pero no fallar el registro
+                // Log the error but don't fail the registration
                 _logger.LogError(ex, "Failed to publish UserCreatedEvent for user: {UserId}. User was still created.", user.Id);
             }
 
@@ -142,26 +160,31 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
         }
 
         /// <summary>
-        /// Authenticates a user and returns a JWT token for API access.
-        /// Validates credentials and checks for account lockout status.
+        /// Authenticates a user and returns a JWT access token.
         /// </summary>
-        /// <param name="request">The login request containing user credentials.</param>
-        /// <param name="validator">FluentValidation validator for the login request.</param>
-        /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <returns>A JWT token and user information upon successful authentication.</returns>
-        /// <response code="200">Authentication successful, returns access token.</response>
-        /// <response code="400">Account is locked out or validation failed.</response>
-        /// <response code="401">Invalid credentials provided.</response>
+        /// <param name="request">Login credentials containing email and password.</param>
+        /// <param name="validator">FluentValidation validator for request validation.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+        /// <returns>JWT token and user information upon successful authentication.</returns>
+        /// <response code="200">Authentication successful. Returns access token and user data.</response>
+        /// <response code="400">Bad request due to validation errors or account lockout.</response>
+        /// <response code="401">Unauthorized due to invalid credentials.</response>
+        /// <response code="500">Internal server error during authentication.</response>
         [HttpPost("login")]
         [AllowAnonymous]
-        [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
-        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+        [Produces("application/json")]
+        [Consumes("application/json")]
+        [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<LoginResponse>> Login(
             [FromBody] LoginRequest request,
             [FromServices] IValidator<LoginRequest> validator,
             CancellationToken cancellationToken = default)
         {
+            _logger.LogDebug("Starting login process for email: {Email}", request.Email);
+
             var validationResult = await validator.ValidateAsync(request, cancellationToken);
             if (!validationResult.IsValid)
             {
@@ -169,7 +192,9 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 _logger.LogWarning("Login validation failed for email: {Email}", request.Email);
                 return ValidationProblem(new ValidationProblemDetails(errors)
                 {
-                    Title = "Validation failed"
+                    Title = "Validation failed",
+                    Detail = "One or more validation errors occurred.",
+                    Status = StatusCodes.Status400BadRequest
                 });
             }
 
@@ -204,7 +229,6 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
             }
 
             var roles = await _userManager.GetRolesAsync(user);
-
             var token = GenerateJwtToken(user, roles);
             var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
 
@@ -225,27 +249,36 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 
         /// <summary>
         /// Retrieves information about the currently authenticated user.
-        /// Requires a valid JWT token in the Authorization header.
         /// </summary>
-        /// <returns>Detailed information about the current user including roles.</returns>
+        /// <returns>Detailed information about the authenticated user.</returns>
         /// <response code="200">Returns current user information.</response>
-        /// <response code="401">User is not authenticated or token is invalid.</response>
+        /// <response code="401">User is not authenticated or token is invalid/expired.</response>
+        /// <response code="404">User not found in database (rare case).</response>
+        /// <response code="500">Internal server error during user retrieval.</response>
         [HttpGet("me")]
         [Authorize]
-        [ProducesResponseType<CurrentUserResponse>(StatusCodes.Status200OK)]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(CurrentUserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<CurrentUserResponse>> GetCurrentUser()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
             {
+                _logger.LogWarning("GetCurrentUser called without valid NameIdentifier claim");
                 return Unauthorized();
             }
 
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
             {
-                return Unauthorized();
+                _logger.LogWarning("User not found in database for ID: {UserId}", userId);
+                return Problem(
+                    title: "User not found",
+                    detail: $"User with ID '{userId}' was not found in the database.",
+                    statusCode: StatusCodes.Status404NotFound);
             }
 
             var roles = await _userManager.GetRolesAsync(user);
@@ -259,24 +292,24 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
                 EmailConfirmed = user.EmailConfirmed
             };
 
-            _logger.LogInformation("User information retrieved: {UserId} - {Email}", userId, user.Email);
+            _logger.LogDebug("User information retrieved: {UserId} - {Email}", userId, user.Email);
 
             return Ok(response);
         }
 
         /// <summary>
-        /// A demonstration endpoint accessible only to users with the Admin role.
-        /// Validates that the user has administrative privileges.
+        /// Demonstrates an endpoint accessible only to users with the Admin role.
         /// </summary>
         /// <returns>Admin-specific information and confirmation of admin status.</returns>
         /// <response code="200">User is an admin, returns admin information.</response>
-        /// <response code="401">User is not authenticated.</response>
-        /// <response code="403">User is authenticated but not an admin.</response>
+        /// <response code="401">User is not authenticated or token is invalid.</response>
+        /// <response code="403">User is authenticated but does not have the Admin role.</response>
         [HttpGet("admin-only")]
-        [ProducesResponseType<AdminOnlyResponse>(StatusCodes.Status200OK)]
+        [Authorize(Roles = Roles.Admin)]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(AdminOnlyResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [Authorize(Roles = Roles.Admin)]
         public ActionResult<AdminOnlyResponse> AdminOnly()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -298,17 +331,24 @@ namespace LaTiendecicaEnLinea.Api.Identity.Controllers
 
         /// <summary>
         /// Generates a JWT token for an authenticated user.
-        /// Includes user claims, roles, and token expiration configuration.
         /// </summary>
         /// <param name="user">The IdentityUser for whom to generate the token.</param>
-        /// <param name="roles">The roles assigned to the user.</param>
+        /// <param name="roles">Collection of roles assigned to the user.</param>
         /// <returns>A signed JWT token as a string.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when JWT configuration is missing or invalid.</exception>
         private string GenerateJwtToken(IdentityUser user, IList<string> roles)
         {
-            var jwtSecret = _configuration["Jwt:Secret"]!;
-            var jwtIssuer = _configuration["Jwt:Issuer"]!;
-            var jwtAudience = _configuration["Jwt:Audience"]!;
+            var jwtSecret = _configuration["Jwt:Secret"];
+            var jwtIssuer = _configuration["Jwt:Issuer"];
+            var jwtAudience = _configuration["Jwt:Audience"];
             var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
+
+            if (string.IsNullOrEmpty(jwtSecret))
+                throw new InvalidOperationException("JWT Secret is not configured.");
+            if (string.IsNullOrEmpty(jwtIssuer))
+                throw new InvalidOperationException("JWT Issuer is not configured.");
+            if (string.IsNullOrEmpty(jwtAudience))
+                throw new InvalidOperationException("JWT Audience is not configured.");
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
